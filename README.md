@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # QFF 2026 — PS-O3: Combinatorial 0/1 Knapsack
 
 **Team:** Team Vincere  
@@ -110,3 +111,7 @@ The run creates benchmark CSV/JSON files and PNG figures under `results/`.
 - [ ] Complete `report.md` with actual results, interpretation, limitations, and each team member's contribution.
 - [ ] Push the project to a **public** GitHub repository.
 - [ ] Submit the public repository URL at the official QFF submission portal.
+=======
+# Vincere_Knapsack
+QFF 2026 PS-O3 project implementing the Combinatorial 0/1 Knapsack Problem using Qiskit. It evaluates quantum optimization across different processor configurations and analyzes feasible solutions, optimal-value hit rates, bitstrings, and performance metrics.
+>>>>>>> bf2d364bcf2dcd6e02ad76208f20929d203ac478
