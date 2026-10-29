@@ -220,4 +220,4 @@ In the current noisy simulations, both Processor B and Processor D sampled the o
 
 However, neither quantum simulation outperformed the implemented uniform random baseline in optimal-value hit rate. The high expected energy returned by the parameter grid search also indicates that the QAOA optimization pipeline needs further validation.
 
-The strongest supported conclusion is that Processor D shows a promising circuit-resource advantage in this simulation, while a solution-quality advantage has not been demonstrated. The official baseline, objective-landscape visualization, and required results-file format must be validated before the submission can be considered complete.
+The strongest supported conclusion is that Processor D shows a promising circuit-resource advantage in this simulation, while a solution-quality advantage has not been demonstrated. The objective-landscape figure and official-format results CSV have been generated and passed structural checks. The official baseline procedure and QAOA solution quality still require validation before the submission can be considered complete.
