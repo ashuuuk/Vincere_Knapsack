@@ -24,60 +24,69 @@
     "feasible": true
   },
   "qubo_ground_states": [
-    {
-      "bits": "11110",
-      "value": 26,
-      "weight": 14,
-      "feasible": true
-    }
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0
+    ]
   ],
   "qubo_ground_energy": -26.0,
   "qaoa_parameters": {
-    "expected_qubo_energy": -2.284970686628499,
-    "gamma": 1.5957963267948967,
-    "beta": 0.9371311906303564
+    "expected_qubo_energy": 172.9960386954756,
+    "gamma": 0.30763272113248274,
+    "beta": 0.8103981633974484,
+    "p": 1,
+    "grid_gamma_steps": 13,
+    "grid_beta_steps": 13
   },
   "note": "Synthetic noise only; results are simulation results, not real hardware measurements.",
+  "processor_A_status": "Not executable for O3: the circuit uses 9 qubits, while Processor A has 5 physical qubits.",
   "circuit_metrics": [
     {
-      "processor": "Processor A",
-      "logical_depth": 10,
-      "transpiled_depth": 106,
-      "logical_cx_equivalent": 20,
-      "transpiled_cx_count": 32,
-      "estimated_routing_swaps": 4.0,
-      "transpiled_operation_count": 173
+      "processor": "Processor B",
+      "logical_depth": 18,
+      "transpiled_depth": 316,
+      "logical_cx_equivalent": 72,
+      "transpiled_cx_count": 114,
+      "estimated_routing_swaps": 14.0,
+      "transpiled_operation_count": 616
     },
     {
-      "processor": "Processor B",
-      "logical_depth": 10,
-      "transpiled_depth": 84,
-      "logical_cx_equivalent": 20,
-      "transpiled_cx_count": 26,
-      "estimated_routing_swaps": 2.0,
-      "transpiled_operation_count": 165
+      "processor": "Processor D",
+      "logical_depth": 18,
+      "transpiled_depth": 227,
+      "logical_cx_equivalent": 72,
+      "transpiled_cx_count": 98,
+      "estimated_routing_swaps": 8.67,
+      "transpiled_operation_count": 493
     }
   ],
   "noisy_sampled_results": [
     {
-      "processor": "Processor A",
-      "shots": 4096,
-      "feasible_shot_rate": 0.689453125,
-      "best_feasible_value_sampled": 26,
-      "known_optimum_hit_rate": 0.094482421875,
-      "most_common_bits": "00111",
-      "most_common_value": 20,
-      "most_common_weight": 12
-    },
-    {
       "processor": "Processor B",
       "shots": 4096,
-      "feasible_shot_rate": 0.71142578125,
+      "feasible_shot_rate": 0.91796875,
       "best_feasible_value_sampled": 26,
-      "known_optimum_hit_rate": 0.1015625,
-      "most_common_bits": "00111",
-      "most_common_value": 20,
-      "most_common_weight": 12
+      "optimal_value_hit_rate": 0.015869140625,
+      "most_common_bits": "01101",
+      "most_common_value": 19,
+      "most_common_weight": 13
+    },
+    {
+      "processor": "Processor D",
+      "shots": 4096,
+      "feasible_shot_rate": 0.918212890625,
+      "best_feasible_value_sampled": 26,
+      "optimal_value_hit_rate": 0.013916015625,
+      "most_common_bits": "01101",
+      "most_common_value": 19,
+      "most_common_weight": 13
     }
   ]
 }
