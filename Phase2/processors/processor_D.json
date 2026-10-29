@@ -20,4 +20,6 @@
   "seed_transpiler": 42,
   "shots": 4096,
   "design_rationale": "A connected degree-four topology provides additional routing alternatives. Routing overhead, circuit depth, and noisy solution quality must be measured against Processors A and B before claiming an improvement."
+
+
 }
