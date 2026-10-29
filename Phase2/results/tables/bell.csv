@@ -1,0 +1,13 @@
+pair_name,physical_qubits,distance,transpiled_cx_count,basis,correlation,standard_error,shots,fidelity,fidelity_se,processor,noise
+adjacent,"(0, 1)",1,1,XX,1.0,0.0,4096,1.0,0.0,processor_D,ideal
+adjacent,"(0, 1)",1,1,YY,-1.0,0.0,4096,1.0,0.0,processor_D,ideal
+adjacent,"(0, 1)",1,1,ZZ,1.0,0.0,4096,1.0,0.0,processor_D,ideal
+adjacent,"(0, 1)",1,1,XX,0.943359375,0.005183947616491667,4096,0.9627685546875,0.0021047062817490785,processor_D,noisy
+adjacent,"(0, 1)",1,1,YY,-0.94775390625,0.0049844125485425965,4096,0.9627685546875,0.0021047062817490785,processor_D,noisy
+adjacent,"(0, 1)",1,1,ZZ,0.9599609375,0.004377092091142928,4096,0.9627685546875,0.0021047062817490785,processor_D,noisy
+farthest,"(0, 6)",3,7,XX,1.0,0.0,4096,1.0,0.0,processor_D,ideal
+farthest,"(0, 6)",3,7,YY,-1.0,0.0,4096,1.0,0.0,processor_D,ideal
+farthest,"(0, 6)",3,7,ZZ,1.0,0.0,4096,1.0,0.0,processor_D,ideal
+farthest,"(0, 6)",3,7,XX,0.9150390625,0.0063025818219088385,4096,0.935791015625,0.0027384810719147863,processor_D,noisy
+farthest,"(0, 6)",3,7,YY,-0.90380859375,0.006686514710267005,4096,0.935791015625,0.0027384810719147863,processor_D,noisy
+farthest,"(0, 6)",3,7,ZZ,0.92431640625,0.005962922161767344,4096,0.935791015625,0.0027384810719147863,processor_D,noisy
