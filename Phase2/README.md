@@ -1,53 +1,170 @@
-<<<<<<< HEAD
 # QFF 2026 — PS-O3: Combinatorial 0/1 Knapsack
 
 **Team:** Team Vincere  
 **Track:** Quantum Optimization (QAOA / QUBO)  
-**Phase 1 scope:** Processor A (5 physical qubits) and Processor B (9 physical qubits) only.
+**Problem Statement:** PS-O3 — Resource-Constrained Item Selection (0/1 Knapsack)  
+**Phase:** Phase 2
 
-## Problem instance
+## 1. Project Overview
 
-- Values: `[10, 4, 7, 5, 8]`
-- Weights: `[5, 3, 4, 2, 6]`
-- Capacity: `15`
-- Quantum algorithm: p=1 QAOA with a deterministic ideal-statevector grid search for `(gamma, beta)`.
-- Classical baseline: exhaustive enumeration of all `2^5 = 32` item selections.
+This project addresses the Combinatorial 0/1 Knapsack problem using Qiskit and quantum optimization techniques. The objective is to select a subset of items that maximizes total value without exceeding a given capacity.
 
-The exact constrained classical optimum for this instance is selecting items 1, 2, 3 and 4 in one-based indexing (bit string `11110` in item order x0..x4): total value 26 and total weight 14.
+The project compares quantum optimization results across different processor configurations, evaluates solution quality and feasibility, measures circuit resources, and investigates how processor topology and noise affect performance.
 
-## Modeling note — read this before presenting results
+The Phase 2 implementation is intended to evaluate Processor A, Processor B, and a designed Processor D using a reproducible experimental workflow.
 
-The official challenge asks for a QUBO with a quadratic capacity penalty. This implementation uses the five item-selection qubits so the same logical problem fits Processor A and Processor B. Its minimized energy is
+## 2. Problem Instance
 
-`E(x) = -value(x) + P * (weight(x) - W)^2 + L * (weight(x) - W)`
+The problem contains five items.
 
-with `P=1` and `L=1`. The linear bias breaks the symmetry of the squared term around capacity. This is a penalty-model choice, not a universal guarantee that every instance's QUBO ground state equals the constrained knapsack optimum. The code therefore separately enumerates and reports the exact constrained optimum and the QUBO ground state. Discuss this distinction in the report and tune/justify penalty parameters if your experiments show a mismatch.
+| Item | Value | Weight |
+|---|---:|---:|
+| 1 | 10 | 5 |
+| 2 | 4 | 3 |
+| 3 | 7 | 4 |
+| 4 | 5 | 2 |
+| 5 | 8 | 6 |
 
-A textbook inequality-to-QUBO conversion can instead add binary slack variables; that requires more than five logical qubits for this instance and would not fit the 5-qubit Processor A without a reduced encoding. Do not claim that this repository implements a slack-variable encoding.
+**Capacity:** 15
 
-## Processor models
+The objective is
 
-- `processors/processor_A.json`: 5 nodes, participant-defined branching topology.
-- `processors/processor_B.json`: 9 nodes, 12-edge heavy-hex-inspired topology.
-- Both use basis gates `{rz, sx, x, cx}` and the same synthetic noise rates: one-qubit depolarizing `0.001`, CX depolarizing `0.005`, readout error `0.01`.
-- Transpilation uses optimization level 1 and seed 42. Noisy sampling uses 4096 shots per processor.
+\[
+\max \sum_{i=1}^{5} v_i x_i
+\]
 
-These are synthetic simulator models, not actual IBM Quantum hardware backends or hardware measurements.
+subject to
 
-## Repository layout
+\[
+\sum_{i=1}^{5} w_i x_i \leq 15,
+\qquad x_i \in \{0,1\}.
+\]
+
+Here, \(v_i\) is the value of item \(i\), \(w_i\) is its weight, and \(x_i=1\) means that the item is selected.
+
+### Classical reference solution
+
+The exact constrained optimum must be computed by exhaustively evaluating all \(2^5=32\) possible item selections.
+
+For the specified instance, the optimal selection is items 1, 2, 3, and 4:
+
+- **Item-selection bitstring:** `11110`, in the order \(x_0,x_1,x_2,x_3,x_4\).
+- **Total value:** 26.
+- **Total weight:** 14.
+- **Capacity:** 15.
+
+This classical optimum is the reference for evaluating the quantum results.
+
+## 3. QUBO Formulation
+
+The knapsack problem must be converted into a Quadratic Unconstrained Binary Optimization (QUBO) problem so it can be evaluated using QAOA.
+
+The Phase 2 formulation requires **nine binary variables: five item-selection variables and four binary slack variables**, with penalty parameter \(P=5\).
+
+The item-selection variables represent whether each item is included. The slack variables encode unused capacity so the capacity constraint can be incorporated into the unconstrained objective.
+
+The QUBO objective combines the negative total item value with a quadratic penalty for violating the capacity constraint. The penalty discourages invalid solutions while allowing the optimizer to search over binary assignments.
+
+The implementation must use the required nine-qubit formulation and the official penalty setting. Feasibility must be evaluated using the five item-selection bits and the original capacity constraint, rather than treating slack-bit assignments alone as proof of feasibility.
+
+The exact constrained classical optimum must be computed independently and compared with the quantum results.
+
+**Implementation note:** The original five-qubit implementation is a baseline and does not, by itself, satisfy the required nine-qubit Phase 2 formulation. Update this section if the implementation or official problem specification changes.
+
+## 4. Quantum Optimization Approach
+
+The project uses Qiskit to construct and evaluate quantum optimization circuits.
+
+The experimental workflow is intended to include:
+
+1. Formulate the knapsack problem as a QUBO.
+2. Construct the corresponding cost Hamiltonian and QAOA circuit.
+3. Evaluate the circuit using the specified simulator and processor configurations.
+4. Transpile circuits to the target processor coupling maps.
+5. Measure circuit resources and sampled solution distributions.
+6. Calculate feasibility and solution-quality metrics.
+7. Compare quantum results against the exhaustive classical reference and the required random baseline.
+
+The QAOA depth, parameter-selection procedure, simulator settings, and random seeds must be documented and kept consistent with the official Phase 2 instructions.
+
+## 5. Processor Configurations
+
+### Processor A
+
+Processor A is the five-qubit baseline processor configuration. It is useful for the baseline resource and topology analysis, but it cannot execute the required nine-qubit O3 formulation as a full nine-qubit circuit.
+
+### Processor B
+
+Processor B is the nine-qubit baseline processor configuration. It is used for the required O3 solution and benchmarking results.
+
+### Processor D
+
+Processor D is the participant-designed processor configuration for Phase 2. Its topology and noise assumptions must be documented and its configuration must pass the official `validate_processor_d()` validation.
+
+The design analysis should explain the topology, identify relevant bottlenecks using measurements on Processors A and B, compare expected and measured effects, and discuss trade-offs honestly.
+
+**Important:** Processor configurations and simulator noise models must not be described as real hardware measurements unless actual hardware experiments were performed. Any synthetic noise rates and topology assumptions must be explicitly identified as simulated assumptions.
+
+## 6. Experimental Evaluation
+
+The experiment should report the required metrics using the official project utilities and settings.
+
+### Solution quality
+
+- Exact constrained classical optimum.
+- Best feasible value found by the quantum method.
+- Feasible-shot probability, \(P_{\mathrm{feasible}}\).
+- Optimal-value hit rate.
+- Comparison with the specified random-selection baseline.
+- Solution-distribution or objective-landscape visualization, with the optimum clearly marked.
+
+### Circuit resources
+
+- Logical circuit depth.
+- Logical CX-equivalent count.
+- Transpiled circuit depth.
+- Transpiled CX count.
+- Routing overhead, where supported by the official measurement procedure.
+- Comparison of Processor A, Processor B, and Processor D wherever the relevant circuit is supported.
+
+Circuit-resource measurements must be generated using the official `circuit_metrics()` procedure and reported with the required capacity rule. Do not invent measurements or report estimates as exact counts.
+
+### Processor comparison
+
+The report should compare the processor configurations in terms of circuit resources, solution quality, feasibility, topology, and noise. Any claim about improved performance must be supported by measured results.
+
+## 7. Required Results and Artifacts
+
+The Phase 2 submission must include the required reproducible experiment and result files.
+
+Expected deliverables include:
+
+- `main.ipynb` — the notebook used to run and demonstrate the experiment.
+- `requirements.txt` — Python dependencies, pinned as required for reproducibility.
+- `processors/processor_A.json` — Processor A configuration.
+- `processors/processor_B.json` — Processor B configuration.
+- `processors/processor_D.json` — designed Processor D configuration.
+- `results/tables/results.csv` — benchmark results in the official kit format.
+- `results/` — additional required tables, figures, and experiment outputs.
+- `report.md` — technical report documenting the formulation, methodology, results, analysis, limitations, and team contributions.
+- Supporting source code and data files required to reproduce the experiment.
+
+Only list files as completed deliverables once they actually exist and have been verified.
+
+## 8. Repository Structure
+
+The project directory is expected to contain the following files and folders, along with any additional files used by the implementation:
 
 ```text
-PS-O3-Knapsack/
+Phase2/
 ├── README.md
 ├── main.ipynb
 ├── requirements.txt
 ├── run_experiment.py
-├── data/
-│   ├── raw/
-│   └── processed/
 ├── processors/
 │   ├── processor_A.json
-│   └── processor_B.json
+│   ├── processor_B.json
+│   └── processor_D.json
 ├── src/
 │   ├── __init__.py
 │   ├── problem.py
@@ -55,63 +172,112 @@ PS-O3-Knapsack/
 │   ├── routing.py
 │   ├── metrics.py
 │   └── visualization.py
+├── data/
+│   ├── raw/
+│   └── processed/
 ├── results/
 │   ├── tables/
+│   │   └── results.csv
 │   └── figures/
-├── report.md
-└── assets/qff_phase1_latex_images/
+└── report.md
 ```
 
-## Setup on macOS
+The exact structure should match the actual repository. Remove any entries that do not exist and add any required project files that are missing.
 
-Use Python 3.11 or 3.12 for the smoothest package compatibility. From this folder:
+## 9. Setup on macOS
+
+Use Python 3.11 or 3.12 if supported by the pinned dependencies.
+
+Open Terminal and navigate to the Phase 2 project directory:
+
+```bash
+cd Phase2
+```
+
+Create and activate a virtual environment:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
+
+Upgrade pip and install the dependencies:
+
+```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Run the full experiment:
+### Run the experiment
+
+If the experiment script is present and configured for the required Phase 2 workflow:
 
 ```bash
 python run_experiment.py
 ```
 
-Or launch the notebook:
+### Launch the notebook
 
 ```bash
 jupyter notebook main.ipynb
 ```
 
-The run creates benchmark CSV/JSON files and PNG figures under `results/`.
+Run the notebook from beginning to end in the configured environment. Confirm that it generates the required Processor B results and all required output files. Follow the official Phase 2 instructions if they specify a different execution procedure.
 
-## What is measured
+## 10. Reproducibility
 
-- Logical circuit depth and CX-equivalent count.
-- Transpiled circuit depth and CX count.
-- Estimated routing-SWAP overhead, inferred from excess CX count (an estimate, not an exact count of SWAP instructions after basis decomposition).
-- Feasible-shot rate, best feasible value observed, and hit rate for the known classical optimum.
-- Coupling-map diagrams and a processor metric comparison plot.
+The project should document and maintain:
 
-## Reproducibility and limitations
+- Python and dependency versions.
+- Random seeds used for circuit generation, transpilation, and simulator sampling.
+- QAOA depth and parameter-selection procedure.
+- Official processor configurations and experiment settings.
+- The procedure used to calculate the exact constrained optimum.
+- Commands required to reproduce the experiment.
+- The output files generated by each run.
 
-- Fixed random seeds are used for transpilation and simulator sampling.
-- The QAOA parameters are selected by a small deterministic grid search on an ideal statevector; the noisy Processor A/B circuits use the same parameters for a fair architecture comparison.
-- The p=1 grid search is a baseline, not proof of a globally optimal QAOA parameter set.
-- The physical graph and noise are synthetic assumptions. Report the coupling graph rationale and limitations.
-- Run the notebook/script before submission so the CSV/JSON/PNG outputs are generated from your environment. Do not fabricate benchmark values.
+Results must be generated from the actual implementation. Do not fabricate benchmark values, substitute illustrative numbers for experimental results, or claim successful validation without running the relevant checks.
 
-## Submission checklist
+A clean-clone test should verify that another person can follow the README and reproduce the required results without manually editing the code.
 
-- [ ] Review the official Drive instructions and confirm this is the team's selected problem statement.
-- [ ] Run `python run_experiment.py` successfully.
-- [ ] Inspect all generated tables and plots.
-- [ ] Complete `report.md` with actual results, interpretation, limitations, and each team member's contribution.
-- [ ] Push the project to a **public** GitHub repository.
-- [ ] Submit the public repository URL at the official QFF submission portal.
-=======
-# Vincere_Knapsack
-QFF 2026 PS-O3 project implementing the Combinatorial 0/1 Knapsack Problem using Qiskit. It evaluates quantum optimization across different processor configurations and analyzes feasible solutions, optimal-value hit rates, bitstrings, and performance metrics.
->>>>>>> bf2d364bcf2dcd6e02ad76208f20929d203ac478
+## 11. Technical Report
+
+The accompanying `report.md` should explain:
+
+1. The problem statement and mathematical formulation.
+2. The nine-qubit QUBO, slack-variable encoding, and penalty parameter.
+3. The classical reference solution and the method used to obtain it.
+4. The experimental setup and QAOA parameter-selection procedure.
+5. Solution feasibility and quality compared with the random baseline.
+6. The required objective-landscape or solution-distribution analysis.
+7. Circuit-resource comparisons across the supported processor configurations.
+8. Processor D topology, bottlenecks, expected effects, and measured trade-offs.
+9. The limitations of the simulator, noise model, and optimization approach.
+10. Reproducibility details, future improvements, and individual team contributions.
+
+Include figures and tables generated from actual runs and explain what the results demonstrate.
+
+## 12. Phase 2 Submission Checklist
+
+- [ ] Confirm PS-O3 as the selected problem statement.
+- [ ] Implement and verify the required nine-qubit QUBO with four slack bits and \(P=5\).
+- [ ] Verify that feasibility is evaluated using the item-selection bits and original capacity constraint.
+- [ ] Compute the exact constrained classical optimum using all 32 item selections.
+- [ ] Run `main.ipynb` successfully and verify the required Processor B results.
+- [ ] Implement `processors/processor_D.json` and validate it using `validate_processor_d()`.
+- [ ] Measure the required circuit metrics using `circuit_metrics()`.
+- [ ] Generate `results/tables/results.csv` in the official kit format.
+- [ ] Generate the required tables and figures.
+- [ ] Complete `report.md` with real measurements, interpretation, limitations, and team contributions.
+- [ ] Pin dependencies and document reproducible execution steps.
+- [ ] Test the workflow from a clean clone.
+- [ ] Ensure the public GitHub repository contains all required deliverables.
+- [ ] Submit the repository URL through the official QFF submission portal.
+
+## 13. Limitations
+
+Quantum optimization results depend on the QUBO formulation, penalty strength, QAOA depth, parameter selection, circuit compilation, processor connectivity, and noise assumptions.
+
+Simulated results do not establish a quantum advantage over classical optimization. The exhaustive classical solution provides a reference for this small five-item instance, while the processor comparison helps investigate the effects of circuit resources and topology under the specified experimental conditions.
+
+The report should distinguish theoretical expectations, simulated results, measured metrics, and limitations clearly.
