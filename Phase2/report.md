@@ -1,3 +1,4 @@
+
 # PS-O3: Architecture, Optimization, and Results Analysis
 
 **Event:** Qiskit Fall Fest 2026  
@@ -7,17 +8,15 @@
 
 ## 1. Objective
 
-The objective of this project is to investigate the use of the Quantum Approximate Optimization Algorithm (QAOA) for solving the Combinatorial 0/1 Knapsack problem. The study evaluates solution feasibility, objective quality, circuit resources, processor connectivity, and the effects of simulated noise.
+This project investigates the use of the Quantum Approximate Optimization Algorithm (QAOA) for a five-item 0/1 knapsack problem. The study evaluates solution feasibility, objective quality, circuit resources, processor connectivity, and the effects of simulated noise.
 
-The experimental analysis compares quantum optimization results with an exact classical reference and the prescribed random baseline. It also investigates how processor architecture and circuit compilation affect the measured output distribution.
+The required formulation uses five item-selection variables and four binary slack variables, for a total of nine qubits. The penalty parameter is P = 5. Processor B is used as the nine-qubit baseline, and Processor D is evaluated as the participant-designed architecture. Processor A has only five physical qubits and is therefore not used to execute the complete nine-qubit circuit in the experiment reported here.
 
-The Phase 2 evaluation must use the official nine-qubit O3 formulation, including five item-selection variables, four slack variables, and penalty parameter \(P=5\). Processor B is the required baseline for the scored O3 solution results, while Processor D is evaluated as the participant-designed architecture. Processor A is used for the applicable baseline and architecture analysis.
-
-**Implementation status:** The existing five-qubit p=1 implementation provides a baseline for the analysis described below. Results from that implementation must not be presented as results from the required nine-qubit Phase 2 formulation unless the formulation has actually been implemented and verified.
+The experiments use Qiskit Aer simulations with synthetic noise. The measurements reported here are simulation results, not measurements from physical quantum hardware.
 
 ## 2. Problem Definition and Classical Reference
 
-The knapsack problem consists of five items with the following values and weights.
+The instance contains five items:
 
 | Item | Value | Weight |
 |---|---:|---:|
@@ -27,122 +26,198 @@ The knapsack problem consists of five items with the following values and weight
 | 4 | 5 | 2 |
 | 5 | 8 | 6 |
 
-The knapsack capacity is \(W=15\).
+The capacity is W = 15. Let x_i be a binary variable indicating whether item i is selected. The objective is
 
-Let \(x_i\in\{0,1\}\) indicate whether item \(i\) is selected. The constrained optimization problem is
-
-\[
-\max V(x)=\sum_{i=1}^{5}v_i x_i
-\]
+max V(x) = sum_i v_i x_i
 
 subject to
 
-\[
-\sum_{i=1}^{5}w_i x_i\leq 15.
-\]
+sum_i w_i x_i <= 15.
 
-The exact classical solution is obtained by exhaustive enumeration of all \(2^5=32\) item selections.
+Exhaustive enumeration of all 2^5 = 32 item selections gives the exact constrained optimum:
 
-For this instance, the optimal selection is `11110`, in the order \(x_0,x_1,x_2,x_3,x_4\). It selects the first four items, producing a total value of 26 and total weight of 14.
-
-| Reference metric | Value |
+| Reference metric | Result |
 |---|---:|
 | Number of item selections | 32 |
-| Optimal feasible value | 26 |
+| Optimal value | 26 |
 | Weight of optimal selection | 14 |
 | Capacity | 15 |
 | Optimal item-selection bitstring | `11110` |
 
-This classical solution provides the reference for assessing the quality of quantum-generated candidates. Feasibility and objective quality are evaluated separately: a high-value candidate is not a valid solution if its total weight exceeds capacity.
+The bitstring is ordered by item index. It selects the first four items and excludes the fifth. Its total value is 10 + 4 + 7 + 5 = 26, and its total weight is 5 + 3 + 4 + 2 = 14.
 
-## 3. QUBO Formulation and Penalty Analysis
+This exact classical solution is used as the reference for evaluating sampled candidates. Feasibility is determined from the item bits, independently of the slack-bit assignment.
 
-The constrained problem must be converted into a Quadratic Unconstrained Binary Optimization (QUBO) problem before it can be used to construct the QAOA cost Hamiltonian.
+## 3. QUBO Formulation
 
-The required Phase 2 formulation uses five item-selection bits and four binary slack bits, giving nine binary variables in total. The penalty parameter must be \(P=5\), as specified by the challenge.
+The constrained problem is encoded as a quadratic unconstrained binary optimization problem with five item bits and four slack bits. The slack weights are 1, 2, 4, and 8, giving nine binary variables.
 
-The slack variables represent unused capacity and allow the capacity constraint to be encoded in the QUBO objective. The penalty term discourages assignments that violate the capacity equality in the encoded formulation.
+The implemented energy function is
 
-For the original five-item problem, feasibility must ultimately be checked using the item-selection bits:
+E(x,s) = -V(x) + P (sum_i w_i x_i + sum_j 2^j s_j - W)^2,
 
-\[
-\operatorname{feasible}(x)=
-\begin{cases}
-1,&\sum_i w_i x_i\leq 15,\\
-0,&\text{otherwise}.
-\end{cases}
-\]
+where P = 5 and W = 15.
 
-The implementation must calculate the original item value independently of the slack-bit assignment. Slack variables are auxiliary encoding variables; they do not represent additional items.
+The item-value term rewards valuable selections, while the penalty term encourages the combined item weight and slack value to equal the capacity. Slack variables represent unused capacity; they are not additional items.
 
-### 3.1 Baseline formulation versus required formulation
+The classical exhaustive search reports a QUBO ground energy of -26.0, with the ground-state assignment `111101000` in the implementation's item-then-slack bit ordering. Its item bits are `11110`, and its slack bits represent 1 unit of unused capacity.
 
-The earlier five-qubit baseline uses the penalty objective documented in the existing implementation:
-
-\[
-E(x)=-V(x)+P\bigl(w(x)-W\bigr)^2
-+L\bigl(w(x)-W\bigr),
-\]
-
-where \(w(x)=\sum_i w_i x_i\), with \(P=1\) and \(L=1\) in that baseline.
-
-This baseline must be distinguished from the required nine-qubit slack-variable formulation with \(P=5\). The two formulations have different encodings and cannot be treated as interchangeable.
-
-A quadratic penalty does not automatically guarantee that the unconstrained QUBO ground state corresponds to the exact constrained optimum for every penalty choice. The QUBO ground state must therefore be compared with the exhaustive classical reference.
-
-### 3.2 Penalty and optimization sensitivity
-
-Penalty strength affects the balance between maximizing value and discouraging invalid assignments. An insufficient penalty can allow an infeasible assignment to have lower energy than a feasible assignment. An excessively strong penalty can also change the optimization landscape and make parameter selection more difficult.
-
-The report should distinguish between the official scored configuration and any additional exploratory experiments. The official \(P=5\) configuration must remain unchanged for the required evaluation. Alternative penalty values, if investigated, should be reported separately and must not replace the official result.
+The exact constrained optimum and the QUBO ground state are checked separately. This distinction matters because the correctness of a penalty encoding depends on its coefficients and the resulting energy landscape.
 
 ## 4. Experimental Methodology
 
-The experiment uses QAOA to prepare a quantum state whose measurement distribution can be analyzed for candidate item selections.
+### 4.1 QAOA and parameter selection
 
-The baseline implementation uses p=1 QAOA and a deterministic grid search over \((\gamma,\beta)\) using an ideal statevector simulation. The selected parameters are then used for the corresponding noisy processor simulations in that baseline.
+The experiment constructs a p = 1 QAOA circuit over the nine QUBO variables. The circuit prepares an equal superposition, applies the cost unitary derived from the QUBO coefficients, applies an RX mixer, and measures all nine qubits.
 
-For the Phase 2 submission, the actual notebook must implement and document the required nine-qubit formulation, official settings, and Processor B evaluation procedure.
+The parameters gamma and beta are selected using an ideal statevector grid search with 13 gamma values and 13 beta values. The selected parameters are then used for noisy simulation on Processors B and D.
 
-The experiment should follow these steps:
+The recorded run returned:
 
-1. Construct the required QUBO and its cost Hamiltonian.
-2. Prepare the QAOA circuit using the specified depth and parameters.
-3. Evaluate the circuit using the prescribed simulation configuration.
-4. Transpile the circuit for the relevant processor coupling map.
-5. Sample the circuit using the prescribed shot count and noise model.
-6. Decode the five item-selection bits from each measured candidate.
-7. Calculate feasibility, item value, optimal-value hit rate, and circuit-resource metrics.
-8. Compare the results with exhaustive classical enumeration and the random baseline.
-9. Generate the required objective-landscape and processor-comparison figures.
-10. Save the measured outputs in the official results format.
+| Parameter | Value |
+|---|---:|
+| QAOA depth p | 1 |
+| Gamma | 0.3076327211 |
+| Beta | 0.8103981634 |
+| Grid points | 13 x 13 |
+| Shots per processor | 4096 |
+| Transpiler optimization level | 1 |
+| Transpiler seed | 42 |
+| Simulator seed | 42 |
 
-For the earlier baseline, noisy sampling used 4096 shots and transpilation used optimization level 1 with seed 42. These settings should be documented as Phase 2 settings only if they match the actual official configuration and the executed notebook.
+The reported grid-search expected QUBO energy was 172.9960. This is substantially above the exact ground energy of -26.0 and indicates that the current parameter search did not find a low-energy state. The value is retained as an observed output and should not be interpreted as evidence of successful QAOA optimization.
+
+### 4.2 Processor configurations
+
+Processor B uses a nine-qubit coupling map with 12 directed edges in its configuration. Processor D uses nine qubits and 18 configured edges. Processor D's design provides additional routing alternatives.
+
+Processor A has five qubits, fewer than the nine required by the complete formulation. The full circuit was therefore not executed on Processor A in this run.
+
+### 4.3 Noise and sampling
+
+The simulations use Qiskit Aer with synthetic depolarizing errors for single-qubit and CX gates, plus a symmetric readout-error model. The configured rates are 0.001 for single-qubit depolarizing error, 0.005 for CX depolarizing error, and 0.01 for readout error.
+
+These values are simulation assumptions. They are not validated physical-device calibration data, and the results must not be presented as actual hardware performance.
+
+### 4.4 Random-selection baseline
+
+A reproducible uniform random baseline independently samples five item-selection bits, using 4096 samples and random seed 42. Each selection is evaluated against the original capacity constraint.
+
+This is the project's current exploratory baseline. It should be checked against the competition's prescribed random-selection procedure before being treated as the official benchmark.
 
 ## 5. Results and Benchmarking
 
-All numerical results in this section must be populated from the completed experiment. The existing baseline outputs are not substitutes for the required Phase 2 results.
+### 5.1 Circuit resources
 
-### 5.1 Processor and circuit resources
+The latest experiment produced the following circuit metrics:
 
-The baseline implementation generates processor metrics in `results/tables/processor_metrics.csv`. These measurements should be checked against the actual nine-qubit experiment before being used in the final Phase 2 analysis.
+| Metric | Processor B | Processor D |
+|---|---:|---:|
+| Physical qubits in configuration | 9 | 9 |
+| Logical circuit depth | 18 | 18 |
+| Transpiled circuit depth | 316 | 227 |
+| Logical CX-equivalent count | 72 | 72 |
+| Transpiled CX count | 114 | 98 |
+| Estimated routing swaps | 14.00 | 8.67 |
+| Transpiled operation count | 616 | 493 |
 
-| Metric | Processor A | Processor B | Processor D |
-|---|---|---|---|
-| Qubits in configuration | 5 | 9 | Record actual count |
-| Transpiled circuit depth | Not yet verified | Not yet verified | Not yet verified |
-| Transpiled CX count | Not yet verified | Not yet verified | Not yet verified |
-| Routing overhead | Not yet verified | Not yet verified | Not yet verified |
-| Feasible-shot probability | Not yet verified | Not yet verified | Not yet verified |
-| Optimal-value hit rate | Not yet verified | Not yet verified | Not yet verified |
+Processor D had 89 fewer transpiled depth layers than Processor B, a reduction of approximately 28.2%. It also used 16 fewer transpiled CX gates, a reduction of approximately 14.0%, and had a lower estimated routing-swap count.
 
-Replace the placeholder entries with measurements from the official experiment. If a metric is not applicable or cannot be measured, explain why rather than inventing a value.
+These results suggest that Processor D's configured connectivity reduces compilation overhead for this circuit under the current transpilation settings. They do not, by themselves, establish a general advantage across other circuits or hardware devices.
+
+The routing-swap quantity is an estimate derived from the difference between physical CX count and logical CX-equivalent count. It is not a direct count of SWAP instructions and should be interpreted as a proxy.
 
 ### 5.2 Solution quality and feasibility
 
-For each processor and required experiment, report the following quantities:
+The measured noisy-simulation results were:
 
-- **Feasible-shot probability:** the fraction of measured candidates whose item-selection bits satisfy the capacity constraint.
-- **Best feasible value:** the highest total item value observed among feasible candidates.
-- **Optimal-value hit rate:** the fraction of measured candidates whose feasible item-selection value equals the classical optimum of 26.
-- **Mean feasible value:** the mean
+| Metric | Processor B | Processor D |
+|---|---:|---:|
+| Shots | 4096 | 4096 |
+| Feasible-shot probability | 0.917969 (91.80%) | 0.918213 (91.82%) |
+| Best feasible sampled value | 26 | 26 |
+| Optimal-value hit rate | 0.015869 (1.59%) | 0.013916 (1.39%) |
+| Most common item bits | `01101` | `01101` |
+| Most common value | 19 | 19 |
+| Most common weight | 13 | 13 |
+| Mean feasible value | 14.2375 | 14.3209 |
+
+Both processors sampled the exact optimal value of 26 at least once. However, the optimal-value hit rate was low, and the most frequently sampled item selection was `01101`, with value 19 and weight 13.
+
+Processor D's feasible-shot probability was only marginally higher than Processor B's. Its mean feasible value was also slightly higher, but its optimal-value hit rate was lower. Consequently, the current sample does not demonstrate that Processor D produces the optimum more frequently than Processor B.
+
+### 5.3 Uniform random-selection baseline
+
+The uniform random baseline returned:
+
+| Metric | Result |
+|---|---:|
+| Samples | 4096 |
+| Feasible-shot probability | 0.879395 (87.94%) |
+| Best feasible sampled value | 26 |
+| Optimal-value hit rate | 0.030762 (3.08%) |
+| Mean feasible value | 15.0811 |
+| Random seed | 42 |
+
+Compared with this baseline, Processor B had a higher feasible-shot probability but a lower optimal-value hit rate and lower mean feasible value. Processor D also had a higher feasible-shot probability but a lower optimal-value hit rate; its mean feasible value was lower than the random baseline as well.
+
+The results therefore do not establish a solution-quality advantage over uniform random selection. The best sampled value of 26 alone is insufficient to show superiority, because the random baseline also sampled that value.
+
+### 5.4 Interpretation
+
+The resource metrics favor Processor D for this particular circuit and transpilation configuration. However, the sampling metrics do not show a corresponding improvement in optimal-value hit rate.
+
+The current QAOA parameter selection is a major limitation: the grid search returned an expected energy of approximately 172.996, far above the known ground energy of -26.0. Further debugging and validation of the QUBO-to-Ising conversion, statevector energy evaluation, and parameter-selection procedure are necessary before drawing strong conclusions about QAOA solution quality.
+
+The reported results should therefore be interpreted as an initial simulation benchmark, not as evidence of quantum advantage.
+
+## 6. Limitations
+
+1. **Parameter-selection quality:** The current grid search returned a high expected QUBO energy relative to the exact ground energy. The parameter-selection and energy-evaluation pipeline needs further validation.
+
+2. **Synthetic noise:** The noise model uses fixed configured rates rather than validated device calibration data. The results are not physical hardware measurements.
+
+3. **Processor A scope:** Processor A has only five qubits and was not used to run the complete nine-qubit formulation. A full nine-qubit comparison against Processor A is not available from this experiment.
+
+4. **Random baseline definition:** The implemented baseline uniformly samples the five item bits. The competition's official baseline procedure must be verified before this result is considered compliant with the required benchmark.
+
+5. **Circuit-resource estimates:** The routing-swap figure is an estimate, not a direct SWAP count. It should be labeled accordingly.
+
+6. **Missing deliverables:** The current output listing does not include an objective-landscape figure or a confirmed official-format `results.csv`. These outputs must be generated and checked against the official requirements before final submission.
+
+7. **Statistical variability:** The experiment uses one configured seed and 4096 shots per processor. Repeated seeds or additional sampling would be needed to assess the stability of small differences in solution-quality metrics.
+
+## 7. Reproducibility
+
+The experiment is run from the Phase 2 directory with the project's Python environment activated:
+
+```bash
+python -m src.problem
+python run_experiment.py
+```
+
+The current experiment uses Qiskit 2.2.3 and Qiskit Aer 0.17.2 in Python 3.12.16. It uses a 13-by-13 parameter grid, 4096 shots per processor, transpiler optimization level 1, transpiler seed 42, and simulator seed 42.
+
+The generated outputs include:
+
+- `results/tables/processor_metrics.csv`
+- `results/tables/sampled_results.csv`
+- `results/tables/random_baseline.csv`
+- `results/tables/benchmark_summary.json`
+- `results/tables/processor_B_counts.csv`
+- `results/tables/processor_D_counts.csv`
+- `results/figures/processor_B_coupling.png`
+- `results/figures/processor_D_coupling.png`
+- `results/figures/processor_comparison.png`
+
+The saved tables and figures should be regenerated whenever the experiment code, parameter-selection procedure, processor topology, or noise assumptions change.
+
+## 8. Conclusion
+
+The exact classical optimum for the five-item instance has value 26 at weight 14, with item-selection bits `11110`. The nine-qubit QUBO encoding uses five item variables, four slack variables, and penalty P = 5.
+
+In the current noisy simulations, both Processor B and Processor D sampled the optimal value. Processor D had lower transpiled circuit depth and fewer transpiled CX gates, indicating lower compilation overhead for this circuit under the configured topology and transpilation settings.
+
+However, neither quantum simulation outperformed the implemented uniform random baseline in optimal-value hit rate. The high expected energy returned by the parameter grid search also indicates that the QAOA optimization pipeline needs further validation.
+
+The strongest supported conclusion is that Processor D shows a promising circuit-resource advantage in this simulation, while a solution-quality advantage has not been demonstrated. The official baseline, objective-landscape visualization, and required results-file format must be validated before the submission can be considered complete.
