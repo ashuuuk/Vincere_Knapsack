@@ -1,9 +1,8 @@
+
 {
   "name": "Processor D",
-  "team": "Team Vincere",
-  "problem_statement": "PS-O3",
-  "num_qubits": 9,
-  "edges": [
+  "physical_qubits": 9,
+  "coupling_map": [
     [0, 1], [1, 2], [2, 3],
     [3, 4], [4, 5], [5, 6],
     [6, 7], [7, 8], [8, 0],
@@ -13,10 +12,12 @@
   ],
   "basis_gates": ["rz", "sx", "x", "cx"],
   "noise": {
-    "model": "official",
-    "p1": 0.001,
-    "p2": 0.005,
-    "p_readout": 0.01
+    "single_qubit_depolarizing": 0.001,
+    "cx_depolarizing": 0.005,
+    "readout_error": 0.01
   },
-  "design_rationale": "A connected degree-four topology adds routing alternatives compared with Processor B. Its routing overhead and circuit depth must be measured before deciding whether the added connectivity improves the PS-O3 benchmark."
+  "optimization_level": 1,
+  "seed_transpiler": 42,
+  "shots": 4096,
+  "design_rationale": "A connected degree-four topology provides additional routing alternatives. Routing overhead, circuit depth, and noisy solution quality must be measured against Processors A and B before claiming an improvement."
 }

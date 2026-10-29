@@ -19,7 +19,6 @@ def circuit_metrics(logical_circuit, transpiled_circuit):
         logical_ops.get("cx", 0) + logical_ops.get("rzz", 0) * 2
     )
     physical_cx = int(physical_ops.get("cx", 0))
-
     swap_estimate = max(0.0, (physical_cx - logical_cx) / 3.0)
 
     return {
@@ -32,8 +31,8 @@ def circuit_metrics(logical_circuit, transpiled_circuit):
     }
 
 
-def summarize_counts(counts):
-    """Evaluate feasibility using item bits only; retain slack bits."""
+def summarize_counts(counts, optimum_value):
+    """Summarize sampled solutions against the known classical optimum."""
     total = sum(counts.values())
     if total == 0:
         raise ValueError("No measurement counts were provided.")
@@ -83,10 +82,6 @@ def summarize_counts(counts):
         default=0,
     )
 
-    optimum_value = max(
-        row["value"] for row in rows if row["feasible"]
-    )
-
     optimum_hits = sum(
         row["count"]
         for row in rows
@@ -105,3 +100,4 @@ def summarize_counts(counts):
         "most_common_weight": most_common["weight"],
         "counts": rows,
     }
+

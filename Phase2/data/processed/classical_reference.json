@@ -24,18 +24,27 @@
     "feasible": true
   },
   "qubo_ground_states": [
-    {
-      "bits": "11110",
-      "value": 26,
-      "weight": 14,
-      "feasible": true
-    }
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0,
+      0
+    ]
   ],
   "qubo_ground_energy": -26.0,
   "qaoa_parameters": {
-    "expected_qubo_energy": -2.284970686628499,
-    "gamma": 1.5957963267948967,
-    "beta": 0.9371311906303564
+    "expected_qubo_energy": 172.9960386954756,
+    "gamma": 0.30763272113248274,
+    "beta": 0.8103981633974484,
+    "p": 1,
+    "grid_gamma_steps": 13,
+    "grid_beta_steps": 13
   },
-  "note": "Synthetic noise only; results are simulation results, not real hardware measurements."
+  "note": "Synthetic noise only; results are simulation results, not real hardware measurements.",
+  "processor_A_status": "Not executable for O3: the circuit uses 9 qubits, while Processor A has 5 physical qubits."
 }
