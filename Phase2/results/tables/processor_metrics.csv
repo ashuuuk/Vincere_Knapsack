@@ -1,0 +1,3 @@
+processor,logical_depth,transpiled_depth,logical_cx_equivalent,transpiled_cx_count,estimated_routing_swaps,transpiled_operation_count
+Processor A,10,106,20,32,4.0,173
+Processor B,10,84,20,26,2.0,165

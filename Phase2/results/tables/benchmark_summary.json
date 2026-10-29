@@ -1,0 +1,83 @@
+{
+  "problem_statement": "PS-O3: Combinatorial 0-1 Knapsack Problem",
+  "instance": {
+    "values": [
+      10,
+      4,
+      7,
+      5,
+      8
+    ],
+    "weights": [
+      5,
+      3,
+      4,
+      2,
+      6
+    ],
+    "capacity": 15
+  },
+  "classical_constrained_optimum": {
+    "bits": "11110",
+    "value": 26,
+    "weight": 14,
+    "feasible": true
+  },
+  "qubo_ground_states": [
+    {
+      "bits": "11110",
+      "value": 26,
+      "weight": 14,
+      "feasible": true
+    }
+  ],
+  "qubo_ground_energy": -26.0,
+  "qaoa_parameters": {
+    "expected_qubo_energy": -2.284970686628499,
+    "gamma": 1.5957963267948967,
+    "beta": 0.9371311906303564
+  },
+  "note": "Synthetic noise only; results are simulation results, not real hardware measurements.",
+  "circuit_metrics": [
+    {
+      "processor": "Processor A",
+      "logical_depth": 10,
+      "transpiled_depth": 106,
+      "logical_cx_equivalent": 20,
+      "transpiled_cx_count": 32,
+      "estimated_routing_swaps": 4.0,
+      "transpiled_operation_count": 173
+    },
+    {
+      "processor": "Processor B",
+      "logical_depth": 10,
+      "transpiled_depth": 84,
+      "logical_cx_equivalent": 20,
+      "transpiled_cx_count": 26,
+      "estimated_routing_swaps": 2.0,
+      "transpiled_operation_count": 165
+    }
+  ],
+  "noisy_sampled_results": [
+    {
+      "processor": "Processor A",
+      "shots": 4096,
+      "feasible_shot_rate": 0.689453125,
+      "best_feasible_value_sampled": 26,
+      "known_optimum_hit_rate": 0.094482421875,
+      "most_common_bits": "00111",
+      "most_common_value": 20,
+      "most_common_weight": 12
+    },
+    {
+      "processor": "Processor B",
+      "shots": 4096,
+      "feasible_shot_rate": 0.71142578125,
+      "best_feasible_value_sampled": 26,
+      "known_optimum_hit_rate": 0.1015625,
+      "most_common_bits": "00111",
+      "most_common_value": 20,
+      "most_common_weight": 12
+    }
+  ]
+}
