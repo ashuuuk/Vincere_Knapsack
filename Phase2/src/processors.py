@@ -1,204 +1,137 @@
 
-"""Processor topology and synthetic noise-model loaders."""
+"""Processor configuration loading, validation, and Aer noise models."""
 
 import json
 from pathlib import Path
 
-from qiskit.transpiler import CouplingMap
-from qiskit_aer.noise import (
-    NoiseModel,
-    ReadoutError,
-    depolarizing_error,
-)
-
-ROOT = Path(__file__).resolve().parents[1]
+import networkx as nx
+from qiskit_aer.noise import NoiseModel, depolarizing_error, ReadoutError
 
 
-def load_processor(name):
-    """Load a processor JSON and normalize its topology and noise fields."""
+def load_processor(path):
+    """Load official or legacy processor configuration."""
+    path = Path(path)
 
-    path = ROOT / "processors" / f"{name}.json"
+    if not path.is_file():
+        candidates = [
+            Path("processors") / f"{path.name}.json",
+            Path("processors") / path.name,
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                path = candidate
+                break
 
-    with path.open(encoding="utf-8") as f:
-        config = json.load(f)
-
-    # Support both the original A/B format and the official D format.
-    if "physical_qubits" in config:
-        config["num_qubits"] = config["physical_qubits"]
-
-    if "coupling_map" in config:
-        edges = config["coupling_map"]
-    elif "edges" in config:
-        edges = config["edges"]
-    else:
-        raise ValueError(
-            f"{name} must contain 'coupling_map' or 'edges'."
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Processor configuration not found: {path}"
         )
 
-    config["coupling_map"] = edges
-    config["coupling"] = CouplingMap(
-        [tuple(edge) for edge in edges]
+    with path.open("r", encoding="utf-8") as file:
+        config = json.load(file)
+
+    # Normalize processor topology fields for the rest of the project.
+    config["physical_qubits"] = config.get(
+        "num_qubits", config.get("physical_qubits")
+    )
+    config["coupling_map"] = config.get(
+        "edges", config.get("coupling_map", config.get("coupling", []))
     )
 
-    # Normalize official D noise names to the existing A/B names.
-    rates = config["noise"]
+    # Different modules in this project use different topology key names.
+    config["coupling"] = config["coupling_map"]
 
-    if "single_qubit_depolarizing" not in rates:
-        rates["single_qubit_depolarizing"] = rates["p1"]
+    raw_noise = config.get("noise", {})
+    config["noise"] = {
+        "single_qubit_depolarizing": raw_noise.get(
+            "p1", raw_noise.get("single_qubit_depolarizing", 0.001)
+        ),
+        "cx_depolarizing": raw_noise.get(
+            "p2", raw_noise.get("cx_depolarizing", 0.005)
+        ),
+        "readout_error": raw_noise.get(
+            "p_readout", raw_noise.get("readout_error", 0.01)
+        ),
+    }
 
-    if "cx_depolarizing" not in rates:
-        rates["cx_depolarizing"] = rates["p2"]
-
-    if "readout_error" not in rates:
-        rates["readout_error"] = rates["p_readout"]
+    config.setdefault("optimization_level", 1)
+    config.setdefault("seed_transpiler", 42)
+    config.setdefault("shots", 4096)
 
     return config
 
 
-def build_noise_model(config):
-    """Build the synthetic depolarizing and readout noise model."""
+def validate_processor_d(config, required_qubits=9):
+    """Validate Processor D against Phase 2 requirements."""
+    n = config.get("physical_qubits", config.get("num_qubits"))
+    edges = config.get("coupling_map", config.get("edges", []))
 
-    rates = config["noise"]
-
-    noise = NoiseModel()
-
-    one_qubit = depolarizing_error(
-        rates["single_qubit_depolarizing"],
-        1,
-    )
-
-    two_qubit = depolarizing_error(
-        rates["cx_depolarizing"],
-        2,
-    )
-
-    readout_p = rates["readout_error"]
-
-    readout = ReadoutError(
-        [
-            [1 - readout_p, readout_p],
-            [readout_p, 1 - readout_p],
-        ]
-    )
-
-    noise.add_all_qubit_quantum_error(
-        one_qubit,
-        ["rz", "sx", "x"],
-    )
-
-    noise.add_all_qubit_quantum_error(
-        two_qubit,
-        ["cx"],
-    )
-
-    noise.add_all_qubit_readout_error(readout)
-
-    return noise
-
-
-def validate_processor_d(config, required_qubits):
-    """Validate Processor D against the hackathon design rules."""
-
-    errors = []
-
-    # Rule 1: Qubit count
-    num_qubits = config.get("num_qubits")
-
-    if not isinstance(num_qubits, int) or not (
-        required_qubits <= num_qubits <= 12
-    ):
-        errors.append(
-            f"Qubit count must be between {required_qubits} and 12."
-        )
-
-    # Rule 2: Connectivity
-    edges = config.get("edges", config.get("coupling_map", []))
-
-    adjacency = {i: set() for i in range(num_qubits or 0)}
-
-    for edge in edges:
-        if len(edge) != 2:
-            errors.append(f"Invalid edge: {edge}")
-            continue
-
-        a, b = edge
-
-        if (
-            not isinstance(a, int)
-            or not isinstance(b, int)
-            or a == b
-            or a not in adjacency
-            or b not in adjacency
-        ):
-            errors.append(f"Invalid edge: {edge}")
-            continue
-
-        adjacency[a].add(b)
-        adjacency[b].add(a)
-
-    if num_qubits and num_qubits > 0:
-        visited = set()
-        stack = [0]
-
-        while stack:
-            node = stack.pop()
-
-            if node in visited:
-                continue
-
-            visited.add(node)
-            stack.extend(adjacency[node] - visited)
-
-        if len(visited) != num_qubits:
-            errors.append("Coupling graph must be connected.")
-
-    # Rule 3: Maximum degree
-    for qubit, neighbors in adjacency.items():
-        if len(neighbors) > 4:
-            errors.append(
-                f"Qubit {qubit} has degree {len(neighbors)}; maximum is 4."
-            )
-
-    # Rule 4: Exact gate set
-    required_gates = {"rz", "sx", "x", "cx"}
-
-    if set(config.get("basis_gates", [])) != required_gates:
-        errors.append(
-            "Basis gates must be exactly rz, sx, x, cx."
-        )
-
-    # Rule 5: Noise must not be better than official
-    noise = config.get("noise", {})
-
-    p1 = noise.get(
-        "p1",
-        noise.get("single_qubit_depolarizing", float("inf")),
-    )
-
-    p2 = noise.get(
-        "p2",
-        noise.get("cx_depolarizing", float("inf")),
-    )
-
-    p_readout = noise.get(
-        "p_readout",
-        noise.get("readout_error", float("inf")),
-    )
-
-    if p1 < 0.001:
-        errors.append("Single-qubit noise cannot be below 0.001.")
-
-    if p2 < 0.005:
-        errors.append("CX noise cannot be below 0.005.")
-
-    if p_readout < 0.01:
-        errors.append("Readout noise cannot be below 0.01.")
-
-    if errors:
+    if n is None or int(n) != required_qubits:
         raise ValueError(
-            "Processor D validation failed:\n- "
-            + "\n- ".join(errors)
+            f"Processor D must have exactly {required_qubits} qubits."
+        )
+
+    graph = nx.Graph()
+    graph.add_nodes_from(range(int(n)))
+    graph.add_edges_from(tuple(edge) for edge in edges)
+
+    if not nx.is_connected(graph):
+        raise ValueError(
+            "Processor D coupling graph must be connected."
+        )
+
+    if max(dict(graph.degree()).values(), default=0) > 4:
+        raise ValueError(
+            "Processor D maximum degree must be at most 4."
+        )
+
+    if config.get("basis_gates") != ["rz", "sx", "x", "cx"]:
+        raise ValueError(
+            'basis_gates must be exactly ["rz", "sx", "x", "cx"].'
+        )
+
+    noise = config.get("noise", {})
+    p1 = noise.get("p1", noise.get("single_qubit_depolarizing", 0))
+    p2 = noise.get("p2", noise.get("cx_depolarizing", 0))
+    readout = noise.get(
+        "p_readout", noise.get("readout_error", 0)
+    )
+
+    if p1 < 0.001 or p2 < 0.005 or readout < 0.01:
+        raise ValueError(
+            "Processor D noise is below the required minimum."
         )
 
     return True
+
+
+def build_noise_model(config):
+    """Build an Aer noise model from normalized processor settings."""
+    noise = config["noise"]
+
+    p1 = noise["single_qubit_depolarizing"]
+    p2 = noise["cx_depolarizing"]
+    readout = noise["readout_error"]
+
+    model = NoiseModel()
+
+    if p1 > 0:
+        model.add_all_qubit_quantum_error(
+            depolarizing_error(p1, 1), ["sx", "x"]
+        )
+
+    if p2 > 0:
+        model.add_all_qubit_quantum_error(
+            depolarizing_error(p2, 2), ["cx"]
+        )
+
+    if readout > 0:
+        model.add_all_qubit_readout_error(
+            ReadoutError([
+                [1 - readout, readout],
+                [readout, 1 - readout],
+            ])
+        )
+
+    return model
 

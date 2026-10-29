@@ -12,27 +12,40 @@ from .problem import (
 
 
 def circuit_metrics(logical_circuit, transpiled_circuit):
+    """Calculate logical and transpiled circuit metrics."""
     logical_ops = logical_circuit.count_ops()
     physical_ops = transpiled_circuit.count_ops()
 
     logical_cx = int(
-        logical_ops.get("cx", 0) + logical_ops.get("rzz", 0) * 2
+        logical_ops.get("cx", 0) + 2 * logical_ops.get("rzz", 0)
     )
     physical_cx = int(physical_ops.get("cx", 0))
+
+    # This is an estimate, not an actual routing-stage SWAP count.
     swap_estimate = max(0.0, (physical_cx - logical_cx) / 3.0)
 
+    two_qubit_depth = int(
+        transpiled_circuit.depth(
+            filter_function=lambda instruction:
+                instruction.operation.num_qubits == 2
+        )
+    )
+
     return {
+        "logical_qubits": int(logical_circuit.num_qubits),
+        "physical_qubits": int(transpiled_circuit.num_qubits),
         "logical_depth": int(logical_circuit.depth()),
         "transpiled_depth": int(transpiled_circuit.depth()),
         "logical_cx_equivalent": logical_cx,
         "transpiled_cx_count": physical_cx,
+        "two_qubit_depth": two_qubit_depth,
         "estimated_routing_swaps": round(swap_estimate, 2),
         "transpiled_operation_count": int(sum(physical_ops.values())),
     }
 
 
 def summarize_counts(counts, optimum_value):
-    """Summarize sampled solutions against the known classical optimum."""
+    """Summarize measured solutions against the classical optimum."""
     total = sum(counts.values())
     if total == 0:
         raise ValueError("No measurement counts were provided.")
@@ -40,7 +53,6 @@ def summarize_counts(counts, optimum_value):
     rows = []
 
     for measured_bits, count in counts.items():
-        # Qiskit count strings place classical bit 0 at the right.
         bits = [
             int(ch)
             for ch in measured_bits.replace(" ", "")[::-1]
@@ -100,4 +112,3 @@ def summarize_counts(counts, optimum_value):
         "most_common_weight": most_common["weight"],
         "counts": rows,
     }
-

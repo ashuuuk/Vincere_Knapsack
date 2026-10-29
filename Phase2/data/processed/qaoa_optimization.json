@@ -1,0 +1,62 @@
+{
+  "gamma": 2.617993877991494,
+  "beta": 0.7853981633974483,
+  "expected_qubo_energy": 116.56020144259115,
+  "seed": 0,
+  "num_starts": 5,
+  "gamma_steps": 25,
+  "beta_steps": 25,
+  "method": "independent seeded local grids plus a separate global grid",
+  "starts": [
+    {
+      "start_index": 0,
+      "seed": 0,
+      "initial_gamma": 2.0010741575072397,
+      "initial_beta": 0.8475599579967072,
+      "best_gamma": 1.8760741575072397,
+      "best_beta": 0.7225599579967072,
+      "best_expected_qubo_energy": 170.22419651477665
+    },
+    {
+      "start_index": 1,
+      "seed": 1,
+      "initial_gamma": 1.6079350561067187,
+      "initial_beta": 2.985969765881358,
+      "best_gamma": 1.7329350561067187,
+      "best_beta": 2.8137812097355757,
+      "best_expected_qubo_energy": 169.86769861448016
+    },
+    {
+      "start_index": 2,
+      "seed": 2,
+      "initial_gamma": 0.8218787590475991,
+      "initial_beta": 0.9377375833114271,
+      "best_gamma": 0.9468787590475991,
+      "best_beta": 1.312737583311427,
+      "best_expected_qubo_energy": 154.64453115807723
+    },
+    {
+      "start_index": 3,
+      "seed": 3,
+      "initial_gamma": 0.2690747942844946,
+      "initial_beta": 0.7439621478151841,
+      "best_gamma": 0.4165821802374346,
+      "best_beta": 1.0356288144818508,
+      "best_expected_qubo_energy": 130.66316224618947
+    },
+    {
+      "start_index": 4,
+      "seed": 4,
+      "initial_gamma": 2.9626981331891504,
+      "initial_beta": 1.6063828834996454,
+      "best_gamma": 2.830432665072832,
+      "best_beta": 1.1063828834996454,
+      "best_expected_qubo_energy": 134.02815928141544
+    }
+  ],
+  "global_grid_best": {
+    "gamma": 2.617993877991494,
+    "beta": 0.7853981633974483,
+    "expected_qubo_energy": 116.56020144259115
+  }
+}

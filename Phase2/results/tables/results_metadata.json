@@ -1,0 +1,34 @@
+{
+  "problem_id": "PS-O3",
+  "classical_optimum": {
+    "bits": "11110",
+    "value": 26,
+    "weight": 14,
+    "feasible": true
+  },
+  "random_baseline": {
+    "feasible_probability": 0.875,
+    "optimal_probability": 0.03125,
+    "subsets_enumerated": 32
+  },
+  "result_columns": [
+    "problem_id",
+    "processor",
+    "condition",
+    "executable",
+    "logical_qubits",
+    "physical_qubits",
+    "logical_cx",
+    "cx",
+    "depth",
+    "two_q_depth",
+    "swaps",
+    "cx_overhead",
+    "shots",
+    "quality_metric",
+    "quality_value",
+    "p_opt",
+    "classical_optimum",
+    "random_baseline"
+  ]
+}

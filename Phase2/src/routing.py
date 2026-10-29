@@ -1,110 +1,216 @@
 
-"""Nine-qubit QAOA circuit construction and processor-aware transpilation."""
+"""QAOA circuit construction and parameter optimization for PS-O3."""
 
 import numpy as np
 from qiskit import QuantumCircuit, transpile
 from qiskit.quantum_info import Statevector
 
-from .problem import (
-    N_QUBITS,
-    qubo_coefficients,
-    qubo_energy,
-)
+from src.problem import N_QUBITS, qubo_coefficients
 
 
 def build_qaoa_circuit(gamma, beta, measured=False):
-    """Build a p=1 QAOA circuit for the complete nine-variable QUBO."""
-    n = N_QUBITS
-    _, linear, quadratic = qubo_coefficients()
+    """Build a p=1 QAOA circuit from the project's QUBO coefficients."""
+    constant, linear, quadratic = qubo_coefficients()
 
-    # Convert binary QUBO variables x=(I-Z)/2 into an Ising Hamiltonian.
-    z_linear = {
-        i: -linear[i] / 2.0
-        for i in range(n)
-    }
-    zz = {
-        ij: coeff / 4.0
-        for ij, coeff in quadratic.items()
-    }
+    qc = QuantumCircuit(N_QUBITS)
+    qc.h(range(N_QUBITS))
 
-    for (i, j), coeff in quadratic.items():
-        z_linear[i] -= coeff / 4.0
-        z_linear[j] -= coeff / 4.0
+    # Convert x_i = (1 - Z_i) / 2 into Z and ZZ rotations.
+    z_coefficients = np.zeros(N_QUBITS, dtype=float)
+    zz_coefficients = {}
 
-    qc = QuantumCircuit(n, n if measured else 0)
+    for i, coefficient in linear.items():
+        z_coefficients[i] -= float(coefficient) / 2.0
 
-    # Initial equal superposition.
-    qc.h(range(n))
+    for (i, j), coefficient in quadratic.items():
+        coefficient = float(coefficient)
+        z_coefficients[i] -= coefficient / 4.0
+        z_coefficients[j] -= coefficient / 4.0
+        zz_coefficients[(i, j)] = coefficient / 4.0
 
-    # Cost unitary.
-    for i, coeff in z_linear.items():
-        if abs(coeff) > 1e-12:
-            qc.rz(2 * gamma * coeff, i)
+    for i, coefficient in enumerate(z_coefficients):
+        if abs(coefficient) > 1e-12:
+            qc.rz(2.0 * gamma * coefficient, i)
 
-    for (i, j), coeff in zz.items():
-        if abs(coeff) > 1e-12:
-            qc.rzz(2 * gamma * coeff, i, j)
+    for (i, j), coefficient in zz_coefficients.items():
+        if abs(coefficient) > 1e-12:
+            qc.rzz(2.0 * gamma * coefficient, i, j)
 
-    # Mixer unitary.
-    for i in range(n):
-        qc.rx(2 * beta, i)
+    # The QUBO constant only contributes a global phase, so it is omitted.
+    for qubit in range(N_QUBITS):
+        qc.rx(2.0 * beta, qubit)
 
     if measured:
-        qc.measure(range(n), range(n))
+        qc.measure_all()
 
     return qc
 
 
-def optimize_qaoa_grid(gamma_steps=13, beta_steps=13):
-    """Optimize p=1 parameters using an ideal statevector grid search."""
-    best = None
+def expected_qubo_energy(gamma, beta):
+    """Compute the exact ideal expected QUBO energy."""
+    constant, linear, quadratic = qubo_coefficients()
 
-    gammas = np.linspace(0.05, np.pi, gamma_steps)
-    betas = np.linspace(0.05, np.pi / 2, beta_steps)
+    circuit = build_qaoa_circuit(gamma, beta)
+    state = Statevector.from_instruction(circuit)
+    probabilities = state.probabilities()
 
-    for gamma in gammas:
-        for beta in betas:
-            circuit = build_qaoa_circuit(gamma, beta)
-            state = Statevector.from_instruction(circuit)
-            probabilities = state.probabilities()
+    expected_energy = 0.0
 
-            expected_energy = 0.0
+    for index, probability in enumerate(probabilities):
+        # Qiskit statevector basis indices use little-endian qubit order.
+        bits = [
+            (index >> qubit) & 1
+            for qubit in range(N_QUBITS)
+        ]
 
-            for index, probability in enumerate(probabilities):
-                # Qiskit displays bitstrings with the highest-index bit first.
-                bits = [
-                    int(bit)
-                    for bit in format(index, f"0{N_QUBITS}b")[::-1]
-                ]
-                expected_energy += (
-                    float(probability) * qubo_energy(bits)
+        energy = float(constant)
+
+        for i, coefficient in linear.items():
+            energy += float(coefficient) * bits[i]
+
+        for (i, j), coefficient in quadratic.items():
+            energy += float(coefficient) * bits[i] * bits[j]
+
+        expected_energy += float(probability) * energy
+
+    return float(expected_energy)
+
+
+def optimize_qaoa_grid(
+    gamma_steps=25,
+    beta_steps=25,
+    num_starts=5,
+    seed=0,
+    local_radius=0.5,
+):
+    """
+    Run five independent seeded local grid searches and a separate
+    global grid search. Return the best result and every start's result.
+    """
+    if gamma_steps < 2 or beta_steps < 2:
+        raise ValueError("Grid steps must be at least 2.")
+
+    if num_starts < 1:
+        raise ValueError("num_starts must be at least 1.")
+
+    if local_radius <= 0:
+        raise ValueError("local_radius must be positive.")
+
+    def search(gamma_values, beta_values):
+        best = None
+
+        for gamma in gamma_values:
+            for beta in beta_values:
+                energy = expected_qubo_energy(
+                    float(gamma),
+                    float(beta),
                 )
 
-            candidate = (
-                expected_energy,
-                float(gamma),
-                float(beta),
-            )
+                candidate = {
+                    "gamma": float(gamma),
+                    "beta": float(beta),
+                    "expected_qubo_energy": float(energy),
+                }
 
-            if best is None or candidate[0] < best[0]:
-                best = candidate
+                if (
+                    best is None
+                    or energy < best["expected_qubo_energy"]
+                ):
+                    best = candidate
+
+        return best
+
+    starts = []
+
+    for start_index in range(num_starts):
+        start_seed = int(seed + start_index)
+        rng = np.random.default_rng(start_seed)
+
+        initial_gamma, initial_beta = rng.uniform(
+            0.0, np.pi, size=2
+        )
+
+        gamma_values = np.linspace(
+            max(0.0, initial_gamma - local_radius),
+            min(np.pi, initial_gamma + local_radius),
+            gamma_steps,
+        )
+
+        beta_values = np.linspace(
+            max(0.0, initial_beta - local_radius),
+            min(np.pi, initial_beta + local_radius),
+            beta_steps,
+        )
+
+        best = search(gamma_values, beta_values)
+
+        starts.append({
+            "start_index": start_index,
+            "seed": start_seed,
+            "initial_gamma": float(initial_gamma),
+            "initial_beta": float(initial_beta),
+            "best_gamma": best["gamma"],
+            "best_beta": best["beta"],
+            "best_expected_qubo_energy": (
+                best["expected_qubo_energy"]
+            ),
+        })
+
+    # A separate global grid provides a useful comparison against starts.
+    global_best = search(
+        np.linspace(0.0, np.pi, gamma_steps),
+        np.linspace(0.0, np.pi, beta_steps),
+    )
+
+    candidates = [
+        {
+            "gamma": item["best_gamma"],
+            "beta": item["best_beta"],
+            "expected_qubo_energy": (
+                item["best_expected_qubo_energy"]
+            ),
+        }
+        for item in starts
+    ]
+    candidates.append(global_best)
+
+    best_overall = min(
+        candidates,
+        key=lambda item: item["expected_qubo_energy"],
+    )
 
     return {
-        "expected_qubo_energy": best[0],
-        "gamma": best[1],
-        "beta": best[2],
-        "p": 1,
-        "grid_gamma_steps": gamma_steps,
-        "grid_beta_steps": beta_steps,
+        "gamma": best_overall["gamma"],
+        "beta": best_overall["beta"],
+        "expected_qubo_energy": (
+            best_overall["expected_qubo_energy"]
+        ),
+        "seed": int(seed),
+        "num_starts": int(num_starts),
+        "gamma_steps": int(gamma_steps),
+        "beta_steps": int(beta_steps),
+        "method": (
+            "independent seeded local grids plus a separate global grid"
+        ),
+        "starts": starts,
+        "global_grid_best": global_best,
     }
 
 
 def transpile_for_processor(circuit, config):
-    """Transpile a circuit for the supplied processor configuration."""
+    """Transpile a circuit against a processor's gate and connectivity data."""
+    if "basis_gates" not in config:
+        raise KeyError("Missing basis_gates in processor configuration.")
+
+    coupling = config.get("coupling", config.get("coupling_map"))
+
+    if coupling is None:
+        raise KeyError("Missing coupling or coupling_map.")
+
     return transpile(
         circuit,
         basis_gates=config["basis_gates"],
-        coupling_map=config["coupling"],
-        optimization_level=config["optimization_level"],
-        seed_transpiler=config["seed_transpiler"],
+        coupling_map=coupling,
+        optimization_level=int(config.get("optimization_level", 1)),
+        seed_transpiler=int(config.get("seed_transpiler", 42)),
     )
