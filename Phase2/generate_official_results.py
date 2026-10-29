@@ -4,7 +4,7 @@ import csv
 import json
 from pathlib import Path
 
-from qiskit_aer import AerSimulator
+from qff_phase2 import simulator as official_simulator, transpile_for
 
 from src.problem import (
     VALUES,
@@ -15,7 +15,7 @@ from src.problem import (
     evaluate_bits,
 )
 from src.processors import load_processor, build_noise_model
-from src.routing import build_qaoa_circuit, optimize_qaoa_grid, transpile_for_processor
+from src.routing import build_qaoa_circuit, optimize_qaoa_grid
 from src.metrics import circuit_metrics, summarize_counts
 
 ROOT = Path(__file__).resolve().parent
@@ -107,12 +107,21 @@ def main():
 
     for processor_name in ("processor_B", "processor_D"):
         config = load_processor(processor_name)
-        compiled = transpile_for_processor(measured, config)
-        metrics = circuit_metrics(logical, compiled)
+        official_config = {
+            "name": config["name"],
+            "num_qubits": config["physical_qubits"],
+            "edges": [tuple(edge) for edge in config["coupling_map"]],
+        }
+        compiled = transpile_for(measured, official_config)
+        metrics = circuit_metrics(logical, official_config)
 
         conditions = {
-            "ideal": AerSimulator(),
-            "noisy": AerSimulator(noise_model=build_noise_model(config)),
+            "ideal": official_simulator(noisy=False, processor=official_config),
+            "noisy": official_simulator(
+                noisy=True,
+                processor=official_config,
+                noise_model=build_noise_model(config),
+            ),
         }
 
         for condition, simulator in conditions.items():
@@ -135,8 +144,8 @@ def main():
             import pandas as pd
             pd.DataFrame(summary["counts"]).to_csv(count_file, index=False)
 
-            logical_cx = metrics["logical_cx_equivalent"]
-            physical_cx = metrics["transpiled_cx_count"]
+            logical_cx = metrics["logical_cx"]
+            physical_cx = metrics["cx"]
 
             rows.append({
                 "problem_id": "PS-O3",
@@ -147,15 +156,10 @@ def main():
                 "physical_qubits": metrics["physical_qubits"],
                 "logical_cx": logical_cx,
                 "cx": physical_cx,
-                "depth": metrics["transpiled_depth"],
-                "two_q_depth": metrics["two_qubit_depth"],
-                # Blank intentionally: the current code does not measure
-                # actual routing-stage SWAPs.
-                "swaps": "",
-                "cx_overhead": (
-                    round(physical_cx / logical_cx, 4)
-                    if logical_cx else ""
-                ),
+                "depth": metrics["depth"],
+                "two_q_depth": metrics["two_q_depth"],
+                "swaps": metrics["swaps"],
+                "cx_overhead": metrics["cx_overhead"],
                 "shots": summary["shots"],
                 "quality_metric": "feasible_shot_rate",
                 "quality_value": summary["feasible_shot_rate"],
@@ -183,8 +187,6 @@ def main():
         "seed": SEED,
         "limitations": [
             "Simulated results, not real hardware measurements.",
-            "SWAP counts left blank because actual routing-stage SWAP "
-            "counts are not currently measured.",
             "Random baseline is the probability of a uniformly random "
             "item subset being feasible.",
         ],

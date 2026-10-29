@@ -117,7 +117,7 @@ def build_noise_model(config):
 
     if p1 > 0:
         model.add_all_qubit_quantum_error(
-            depolarizing_error(p1, 1), ["sx", "x"]
+            depolarizing_error(p1, 1), ["rz", "sx", "x"]
         )
 
     if p2 > 0:

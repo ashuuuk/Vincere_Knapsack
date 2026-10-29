@@ -30,5 +30,12 @@
     "p_opt",
     "classical_optimum",
     "random_baseline"
-  ]
+  ],
+  "qaoa_parameters": {
+    "gamma": 2.617993877991494,
+    "beta": 0.7853981633974483,
+    "expected_qubo_energy": 116.56020144259115
+  },
+  "shots_per_processor_condition": 4096,
+  "seed": 42
 }

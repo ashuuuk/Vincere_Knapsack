@@ -9,7 +9,7 @@
 
 This project evaluates a depth-one Quantum Approximate Optimization Algorithm (QAOA) approach to a five-item 0/1 knapsack problem. The work covers the mathematical formulation, exact classical reference, QAOA parameter selection, circuit compilation, processor connectivity, simulated noise, Bell-state verification, and solution-quality benchmarking.
 
-The QUBO formulation uses five item-selection variables and four binary slack variables, requiring nine qubits. The penalty coefficient is P = 5. Processor B provides the baseline nine-qubit topology, while Processor D is the team-designed architecture. Processor A has five physical qubits and cannot execute the complete nine-qubit formulation.
+The QUBO formulation uses five item-selection variables and four binary slack variables, requiring nine qubits. The penalty coefficient is \(P=5\). Processor B provides the baseline nine-qubit topology, while Processor D is the team-designed architecture. Processor A has five physical qubits and cannot execute the complete nine-qubit formulation.
 
 All reported processor results are local simulations with configured synthetic noise, not measurements from physical quantum hardware.
 
@@ -25,7 +25,7 @@ The knapsack instance contains five items.
 | 4 | 5 | 2 |
 | 5 | 8 | 6 |
 
-The capacity is W = 15. Let \(x_i\in\{0,1\}\) indicate whether item \(i\) is selected. The objective is to maximize
+The capacity is \(W=15\). Let \(x_i\in\{0,1\}\) indicate whether item \(i\) is selected. The objective is to maximize
 
 \[
 V(x)=\sum_i v_i x_i
@@ -64,37 +64,38 @@ where \(P=5\), \(W=15\), and each \(s_j\) is binary.
 
 The negative value term rewards valuable item selections. The quadratic penalty encourages the item weight plus the slack value to equal the capacity. The slack variables represent unused capacity and are not additional items.
 
-The exact classical reference reports a QUBO ground energy of -26.0. The ground-state assignment in item-then-slack ordering is `111101000`, corresponding to item bits `11110` and slack bits representing one unit of unused capacity.
+The exact classical reference reports a QUBO ground energy of \(-26.0\). The ground-state assignment in item-then-slack ordering is `111101000`, corresponding to item bits `11110` and slack bits representing one unit of unused capacity.
 
-The constrained optimum and QUBO ground state are checked independently. This distinction is important: a good feasible item selection does not automatically imply that the full item-plus-slack bitstring has low QUBO energy.
+The constrained optimum and QUBO ground state are checked independently. A good feasible item selection does not automatically imply that the full item-plus-slack bitstring has low QUBO energy.
 
 ## 4. Experimental Methodology
 
 ### 4.1 QAOA and parameter selection
 
-The QAOA circuit uses p = 1. It prepares a uniform superposition, applies the QUBO-derived cost unitary, applies an RX mixer, and measures the nine qubits.
+The QAOA circuit uses \(p=1\). It prepares a uniform superposition, applies the QUBO-derived cost unitary, applies an RX mixer, and measures the nine qubits.
 
-Parameter selection uses five seeded starts, with seeds 0 through 4, alongside a global grid search. The recorded refined parameters are:
+Parameter selection uses five seeded local-grid searches, with seeds 0 through 4, alongside a separate global grid search. The selected parameters from the latest experiment are:
 
 | Parameter | Value |
 |---|---:|
-| QAOA depth p | 1 |
-| Gamma | 1.7810741575 |
-| Beta | 0.79422662 |
-| Refined expected QUBO energy | 109.13514916 |
+| QAOA depth \(p\) | 1 |
+| Gamma | 2.617993877991494 |
+| Beta | 0.7853981633974483 |
+| Expected QUBO energy | 116.56020144 |
 | Seeded starts | 5 |
 | Grid steps per dimension | 25 |
 | Processor-condition shots | 4096 |
 
-The selected expected QUBO energy is substantially above the exact ground energy of -26.0. Therefore, the parameter refinement improves the selected search objective relative to the earlier search, but it does not establish that the QAOA state is close to the QUBO ground state.
+The selected parameters are recorded in `data/processed/qaoa_optimization.json` and are used consistently for the processor simulations, result metadata, and landscape marker.
 
-This difference is an important limitation. The item-selection feasibility and optimal-value hit rate must be interpreted separately from the expected energy of the complete nine-bit QUBO assignment.
+The expected QUBO energy is substantially above the exact ground energy of \(-26.0\). Therefore, the selected parameters do not establish that the QAOA state is close to the QUBO ground state. Item-level feasibility and optimal-value hit rate must be interpreted separately from the expected energy of the complete nine-bit assignment.
 
 ### 4.2 Processor configurations
 
-Processor B uses nine qubits and a 12-edge configured coupling map. Processor D uses nine qubits and an 18-edge topology with additional routing alternatives. The Processor D design is connected and has maximum degree four.
+Processor B uses nine qubits and a configured coupling map. Processor D uses nine qubits and an 18-edge topology with additional routing alternatives. The Processor D design is connected and has maximum degree four.
 
 Processor D's configuration uses the required basis gates `rz`, `sx`, `x`, and `cx`, with the configured synthetic noise rates:
+
 - Single-qubit depolarizing probability: 0.001
 - CX depolarizing probability: 0.005
 - Readout error probability: 0.01
@@ -105,13 +106,13 @@ Processor A has five qubits, fewer than the nine required. It is recorded as non
 
 ### 4.3 Noise and sampling
 
-The ideal and noisy conditions are simulated with Qiskit Aer. Each executable processor-condition experiment uses 4096 shots. Transpilation uses optimization level 1 and seed 42; the configured simulator seed is 42.
+The ideal and noisy conditions are simulated with Qiskit Aer. Each executable processor-condition experiment uses 4096 shots. Official transpilation uses optimization level 1 and seed 42, and the simulator seed is 42.
 
 The noise model is synthetic and uses fixed error probabilities. These probabilities are assumptions for controlled simulation, not physical-device calibration data.
 
 ### 4.4 Uniform random-selection baseline
 
-The exact uniform baseline enumerates all 32 item selections. Under uniform sampling, the probability of selecting a feasible subset is 28/32 = 0.875. The probability of selecting the unique optimal item subset is 1/32 = 0.03125.
+The exact uniform baseline enumerates all 32 item selections. Under uniform sampling, the probability of selecting a feasible subset is \(28/32=0.875\). The probability of selecting the unique optimal item subset is \(1/32=0.03125\).
 
 This exact baseline is useful for interpreting the measured QAOA results. A feasible-shot rate above 0.875 indicates more frequent feasible item selections than uniform random selection, while an optimal-value hit rate above 0.03125 indicates more frequent sampling of the optimal item value.
 
@@ -119,22 +120,24 @@ This exact baseline is useful for interpreting the measured QAOA results. A feas
 
 ### 5.1 Circuit resources
 
-The current transpilation results are:
+The latest official transpilation results are:
 
 | Metric | Processor B | Processor D |
 |---|---:|---:|
 | Logical qubits | 9 | 9 |
 | Physical qubits | 9 | 9 |
-| Logical depth | 19 | 19 |
-| Transpiled depth | 316 | 227 |
-| Logical CX-equivalent count | 72 | 72 |
-| Transpiled CX count | 114 | 98 |
-| Two-qubit depth | 88 | 62 |
-| Estimated routing swaps | 14.00 | 8.67 |
+| Logical CX count | 56 | 56 |
+| Transpiled CX count | 98 | 82 |
+| Transpiled circuit depth | 101 | 78 |
+| Two-qubit depth | 74 | 57 |
+| Actual routing SWAP count | 14 | 10 |
+| CX overhead | 42 | 26 |
 
-Processor D reduces transpiled depth from 316 to 227, approximately 28.2%. The CX count decreases from 114 to 98, approximately 14.0%, and the estimated routing-swap proxy decreases from 14.00 to 8.67.
+Processor D reduces transpiled circuit depth from 101 to 78, a reduction of approximately 22.8%. Its CX count decreases from 98 to 82, a reduction of approximately 16.3%. The actual routing SWAP count decreases from 14 to 10, a reduction of approximately 28.6%.
 
-These results support a circuit-resource advantage for Processor D under the tested topology and transpilation settings. The routing-swap figure is an estimate derived from CX-count overhead; it is not a direct count of SWAP instructions. These comparisons do not establish a general advantage on other circuits or real hardware.
+The CX overhead is defined as the transpiled CX count minus the logical CX count. Processor B has an overhead of \(98-56=42\), while Processor D has an overhead of \(82-56=26\).
+
+These results support a circuit-resource advantage for Processor D under the tested topology and official transpilation settings. The SWAP figures are actual routing SWAP counts from the official metric implementation, not estimates inferred from CX overhead. These comparisons do not establish a general advantage on other circuits or real hardware.
 
 ### 5.2 Solution quality and feasibility
 
@@ -142,17 +145,19 @@ The official-format results table reports the following metrics. `quality_value`
 
 | Processor | Condition | Shots | Feasible-shot rate | Optimal-value hit rate |
 |---|---|---:|---:|---:|
-| B | Ideal | 4096 | 0.992188 | 0.117188 |
-| B | Noisy | 4096 | 0.977783 | 0.086426 |
-| D | Ideal | 4096 | 0.993896 | 0.120850 |
-| D | Noisy | 4096 | 0.977051 | 0.096436 |
+| B | Ideal | 4096 | 0.978516 | 0.015625 |
+| B | Noisy | 4096 | 0.970459 | 0.029297 |
+| D | Ideal | 4096 | 0.983887 | 0.013672 |
+| D | Noisy | 4096 | 0.968506 | 0.023682 |
 | A | Not executable | 0 | N/A | N/A |
 
-The classical optimum value is 26. Both executable processors sample the optimal value under ideal and noisy conditions.
+The classical optimum value is 26. Both executable processors sampled the optimal value under ideal and noisy conditions, although the optimal-value hit rates were low.
 
-Under noisy simulation, Processor D has an optimal-value hit rate of 0.096436, compared with 0.086426 for Processor B. This is a modest improvement in this run. However, Processor D's feasible-shot rate of 0.977051 is slightly below Processor B's 0.977783.
+Under noisy simulation, Processor B has an optimal-value hit rate of 0.029297, compared with 0.023682 for Processor D. Processor B also has a slightly higher feasible-shot rate, 0.970459 compared with 0.968506 for Processor D.
 
-The ideal-to-noisy comparison shows that noise reduces the feasible-shot rate and optimal-value hit rate on both processors. Processor D has fewer compiled CX gates and lower depth, but its feasible-shot rate is not higher than B's in the noisy condition. Thus, the evidence supports a resource advantage and a modest optimal-value hit-rate improvement, not universal superiority across every metric.
+The ideal-to-noisy comparison shows that noise reduces the feasible-shot rate on both processors. The optimal-value hit rate does not decrease uniformly in the sampled results: it increases from 0.015625 to 0.029297 for B and from 0.013672 to 0.023682 for D. These are finite-shot observations, not evidence that adding noise improves QAOA in general.
+
+Processor D has fewer compiled CX gates, lower depth, and fewer routing SWAPs, but Processor B performs slightly better on both reported noisy item-level quality metrics. The evidence therefore supports a resource advantage for D, not universal superiority across every metric.
 
 ### 5.3 Uniform random-selection baseline
 
@@ -165,7 +170,7 @@ The exact uniform random baseline gives:
 | Number of subsets | 32 |
 | Classical optimum value | 26 |
 
-Both processors' noisy feasible-shot rates exceed the uniform baseline of 0.875. Their noisy optimal-value hit rates also exceed the exact uniform baseline probability of 0.03125.
+Both processors' noisy feasible-shot rates exceed the uniform baseline of 0.875. However, the noisy optimal-value hit rates of both processors are below the exact uniform baseline probability of 0.03125 in this run.
 
 These comparisons should be interpreted carefully. The random baseline is defined over the five item bits, whereas QAOA samples nine bits including slack variables. The quality metrics compare the resulting item selections against the original knapsack constraint; they do not mean that the complete QUBO assignment is near its ground state. The high selected expected QUBO energy reinforces the need to distinguish item-level solution quality from full-QUBO energy.
 
@@ -196,19 +201,24 @@ The CSV stores one row per pair, condition, and measurement basis. The same comb
 
 ### 5.5 Processor D landscape
 
-The saved Processor D landscape uses a 20 × 20 grid over beta in [0, π] and gamma in [0, π], with 1024 shots per grid point. The plot shows sampled mean QUBO cost across the parameter grid and marks the selected parameters.
+The saved Processor D landscape uses a 20 × 20 grid over beta in \([0,\pi]\) and gamma in \([0,\pi]\), with 1024 shots per grid point. The plot shows sampled mean QUBO cost across the parameter grid and marks the selected parameters:
 
-A landscape helps show the variation in the sampled objective with QAOA parameters. Because the plotted costs are finite-shot estimates under the configured simulation, local fluctuations are possible. The selected parameters should be interpreted alongside the classical ground energy and the item-level sampling metrics rather than as evidence of successful ground-state preparation by themselves.
+- Gamma: 2.617993877991494
+- Beta: 0.7853981633974483
+
+The landscape metadata and result metadata use the same selected parameter pair.
+
+A landscape helps show the variation in the sampled objective with QAOA parameters. Because the plotted costs are finite-shot estimates under the configured simulation, local fluctuations are possible. The selected parameters should be interpreted alongside the classical ground energy and item-level sampling metrics rather than as evidence of successful ground-state preparation by themselves.
 
 ## 6. Limitations and Improvements
 
-1. **QUBO energy remains high.** The selected expected energy is 109.13514916, compared with the exact ground energy of -26.0. The parameter search and resulting state have not reached a low-energy regime. Further work should investigate parameter-grid resolution, cost-unitary scaling, and the relationship between sampled item feasibility and slack-variable penalties.
+1. **QUBO energy remains high.** The selected expected energy is 116.56020144, compared with the exact ground energy of -26.0. The parameter search and resulting state have not reached a low-energy regime. Further work should investigate parameter-grid resolution, cost-unitary scaling, and the relationship between sampled item feasibility and slack-variable penalties.
 
 2. **Synthetic noise only.** The fixed error probabilities simplify comparison but do not model a calibrated physical device. Results should not be presented as real-hardware performance.
 
 3. **Processor A cannot execute the full problem.** Its five-qubit capacity is smaller than the nine-qubit encoding. Its non-executable row must remain explicit rather than being treated as a failed quality result.
 
-4. **Routing estimates are proxies.** The estimated swap count is inferred from gate-count overhead rather than counted from actual SWAP instructions.
+4. **Resource metrics depend on compilation.** The official metrics are specific to the selected circuit, processor coupling map, optimization level, and transpiler seed. Different circuits or settings may produce different results.
 
 5. **Sampling uncertainty.** Each processor-condition run uses 4096 shots. Small differences between B and D should not be overinterpreted without repeated seeds or uncertainty analysis.
 
@@ -240,10 +250,10 @@ The notebook and report should be kept synchronized with the code and generated 
 
 ## 8. Conclusion
 
-The exact classical optimum for this instance has value 26 and weight 14, with item-selection bits `11110`. The QAOA experiment uses a nine-qubit item-plus-slack encoding and p = 1.
+The exact classical optimum for this instance has value 26 and weight 14, with item-selection bits `11110`. The QAOA experiment uses a nine-qubit item-plus-slack encoding and \(p=1\).
 
-Processor D demonstrates a clear circuit-resource improvement over Processor B in the current compilation results: lower transpiled depth, fewer CX gates, and a lower estimated routing-swap count. In noisy sampling, D has a modestly higher optimal-value hit rate, while B has a marginally higher feasible-shot rate. Both processors outperform the exact uniform random baseline on these two item-level metrics in the current run.
+Processor D demonstrates a clear circuit-resource improvement over Processor B in the current official compilation results: lower transpiled depth, fewer CX gates, fewer routing SWAPs, and lower CX overhead. In noisy sampling, Processor B has a slightly higher optimal-value hit rate and feasible-shot rate. Both processors exceed the uniform random baseline on feasible-shot rate, but neither exceeds the uniform baseline's optimal-value hit probability in this run.
 
 Bell-state simulations show ideal fidelity of 1.0 for both tested pairs. Under configured synthetic noise, the adjacent pair's fidelity is higher than the farther pair's, consistent with a possible routing-related cost.
 
-However, the selected expected QUBO energy remains far above the exact ground energy. The results support a topology-related resource improvement and promising item-level sampling metrics, but they do not demonstrate quantum advantage or successful preparation of a low-energy QUBO ground state. Further parameter and energy-landscape validation is needed before making stronger claims.
+However, the selected expected QUBO energy remains far above the exact ground energy. The results support a topology-related resource improvement, but the item-level quality metrics do not demonstrate consistent improvement over uniform random selection in finding the optimal value. They do not demonstrate quantum advantage or successful preparation of a low-energy QUBO ground state. Further parameter and energy-landscape validation is needed before making stronger claims.

@@ -16,7 +16,7 @@ def plot_coupling(config, output_path):
     )
     edges = config.get(
         "edges",
-        config.get("coupling_map", []),
+        config.get("coupling_map", config.get("coupling", [])),
     )
 
     if num_qubits is None:
@@ -38,7 +38,7 @@ def plot_coupling(config, output_path):
     )
 
     ax.set_title(
-        f'{config["name"]} coupling graph ({num_qubits} qubits)'
+        f'{config.get("name", "Processor")} coupling graph ({num_qubits} qubits)'
     )
     ax.axis("off")
     fig.tight_layout()
@@ -47,23 +47,25 @@ def plot_coupling(config, output_path):
 
 
 def plot_comparison(df, output_path):
-    """Compare processor circuit resource metrics."""
+    """Compare processor circuit resource metrics using official values."""
     metrics = [
-        "transpiled_depth",
-        "transpiled_cx_count",
-        "estimated_routing_swaps",
+        ("depth", "Transpiled circuit depth"),
+        ("cx", "Physical CX count"),
+        ("swaps", "Actual routing SWAP count"),
     ]
 
-    fig, axes = plt.subplots(
-        1,
-        len(metrics),
-        figsize=(12, 4),
-    )
+    fig, axes = plt.subplots(1, len(metrics), figsize=(12, 4))
 
-    for ax, metric in zip(axes, metrics):
+    for ax, (metric, title) in zip(axes, metrics):
+        if metric not in df.columns:
+            raise ValueError(
+                f"Missing required metric column '{metric}'. "
+                f"Available columns: {list(df.columns)}"
+            )
+
         ax.bar(df["processor"], df[metric])
-        ax.set_title(metric.replace("_", " ").title())
-        ax.set_ylabel("Count / estimate")
+        ax.set_title(title)
+        ax.set_ylabel("Count")
         ax.tick_params(axis="x", rotation=15)
 
     fig.tight_layout()
@@ -88,10 +90,9 @@ def plot_o3_landscape(
     """
     Plot sampled mean QUBO cost across a gamma/beta parameter grid.
 
-    If processor_config is supplied, transpile to its coupling topology
-    and simulate using its configured synthetic noise model.
-
-    The gamma range automatically expands to include gamma_opt.
+    The landscape uses at least a 20 x 20 grid and 1024 shots per point.
+    If a processor configuration is provided, its topology and noise model
+    are used for the landscape simulation.
     """
     from qiskit import transpile
     from qiskit_aer import AerSimulator
@@ -104,14 +105,10 @@ def plot_o3_landscape(
     )
 
     if gamma_steps < 20 or beta_steps < 20:
-        raise ValueError(
-            "The landscape requires at least a 20 x 20 grid."
-        )
+        raise ValueError("The landscape requires at least a 20 x 20 grid.")
 
     if shots != 1024:
-        raise ValueError(
-            "The PS-O3 landscape requires 1024 shots per grid point."
-        )
+        raise ValueError("The PS-O3 landscape requires 1024 shots per grid point.")
 
     if gamma_max <= 0:
         raise ValueError("gamma_max must be positive.")
@@ -119,35 +116,21 @@ def plot_o3_landscape(
     if gamma_opt is not None:
         if gamma_opt < 0:
             raise ValueError("gamma_opt must be non-negative.")
-
-        # Ensure the selected gamma is included in the plot.
         gamma_max = max(float(gamma_max), float(gamma_opt))
 
     if beta_opt is not None and not 0 <= beta_opt <= np.pi:
         raise ValueError("beta_opt must be between 0 and pi.")
 
-    gammas = np.linspace(
-        0.0,
-        float(gamma_max),
-        gamma_steps,
-    )
-    betas = np.linspace(
-        0.0,
-        np.pi,
-        beta_steps,
-    )
+    gammas = np.linspace(0.0, float(gamma_max), gamma_steps)
+    betas = np.linspace(0.0, np.pi, beta_steps)
 
-    mean_energies = np.zeros(
-        (beta_steps, gamma_steps),
-        dtype=float,
-    )
+    mean_energies = np.zeros((beta_steps, gamma_steps), dtype=float)
 
     noise_model = (
         build_noise_model(processor_config)
         if processor_config is not None
         else None
     )
-
     simulator = AerSimulator(noise_model=noise_model)
 
     for beta_index, beta in enumerate(betas):
@@ -159,42 +142,35 @@ def plot_o3_landscape(
             )
 
             if processor_config is not None:
-                circuit = transpile_for_processor(
-                    circuit,
-                    processor_config,
-                )
+                circuit = transpile_for_processor(circuit, processor_config)
             else:
                 circuit = transpile(
                     circuit,
                     backend=simulator,
+                    seed_transpiler=42,
+                    optimization_level=1,
                 )
 
             counts = (
                 simulator.run(
                     circuit,
                     shots=shots,
-                    seed_simulator=(
-                        seed
-                        + beta_index * gamma_steps
-                        + gamma_index
-                    ),
+                    seed_simulator=seed + beta_index * gamma_steps + gamma_index,
                 )
                 .result()
                 .get_counts()
             )
 
             total_shots = sum(counts.values())
-
             if total_shots == 0:
                 raise RuntimeError(
-                    "No measurement counts returned for "
-                    f"grid point ({gamma_index}, {beta_index})."
+                    f"No counts returned for grid point "
+                    f"({gamma_index}, {beta_index})."
                 )
 
             sampled_energy = 0.0
 
             for measured_bits, count in counts.items():
-                # Qiskit count strings put classical bit 0 on the right.
                 bits = [
                     int(bit)
                     for bit in measured_bits.replace(" ", "")[::-1]
@@ -202,19 +178,14 @@ def plot_o3_landscape(
 
                 if len(bits) != N_QUBITS:
                     raise ValueError(
-                        f"Expected {N_QUBITS} measured bits, "
-                        f"received {len(bits)}."
+                        f"Expected {N_QUBITS} measured bits, received {len(bits)}."
                     )
 
                 sampled_energy += (
-                    float(qubo_energy(bits))
-                    * count
-                    / total_shots
+                    float(qubo_energy(bits)) * count / total_shots
                 )
 
-            mean_energies[beta_index, gamma_index] = (
-                sampled_energy
-            )
+            mean_energies[beta_index, gamma_index] = sampled_energy
 
     fig, ax = plt.subplots(figsize=(9, 6))
 
@@ -228,83 +199,49 @@ def plot_o3_landscape(
             float(betas[0]),
             float(betas[-1]),
         ],
+        cmap="viridis",
     )
 
-    fig.colorbar(
-        image,
-        ax=ax,
-        label="Sampled mean QUBO cost",
-    )
-
-    selected_point_inside_grid = False
-
-    if gamma_opt is not None and beta_opt is not None:
-        # Convert the NumPy comparison result to a native Python bool.
-        selected_point_inside_grid = bool(
-            gammas[0] <= gamma_opt <= gammas[-1]
-            and betas[0] <= beta_opt <= betas[-1]
-        )
-
-        ax.scatter(
-            [float(gamma_opt)],
-            [float(beta_opt)],
-            marker="*",
-            s=200,
-            edgecolors="black",
-            label="Selected parameters",
-            zorder=3,
-        )
-        ax.legend()
-
-    ax.set_xlim(float(gammas[0]), float(gammas[-1]))
-    ax.set_ylim(float(betas[0]), float(betas[-1]))
+    fig.colorbar(image, ax=ax, label="Mean QUBO energy")
     ax.set_xlabel("Gamma")
     ax.set_ylabel("Beta")
-    ax.set_title(
-        "PS-O3 QAOA parameter landscape "
-        f"({gamma_steps} x {beta_steps}, {shots} shots/point)"
-    )
+    ax.set_title("PS-O3 QAOA solution landscape")
+
+    if gamma_opt is not None and beta_opt is not None:
+        ax.scatter(
+            [gamma_opt],
+            [beta_opt],
+            color="red",
+            marker="x",
+            s=100,
+            label="Selected parameters",
+        )
+        ax.legend()
 
     fig.tight_layout()
     fig.savefig(output_path, dpi=180)
     plt.close(fig)
 
-    # Explicitly convert values to native Python types for JSON serialization.
-    return {
-        "processor": (
-            processor_config["name"]
-            if processor_config is not None
-            else "ideal"
-        ),
-        "noise_model": (
-            "configured synthetic noise model"
-            if processor_config is not None
-            else "ideal simulator"
-        ),
-        "gamma_values": [float(value) for value in gammas],
-        "beta_values": [float(value) for value in betas],
-        "sampled_mean_qubo_cost": [
-            [float(value) for value in row]
-            for row in mean_energies
-        ],
+    metadata = {
         "gamma_min": float(gammas[0]),
         "gamma_max": float(gammas[-1]),
         "beta_min": float(betas[0]),
         "beta_max": float(betas[-1]),
+        "gamma_steps": int(gamma_steps),
+        "beta_steps": int(beta_steps),
         "shots_per_point": int(shots),
-        "grid_shape": [int(beta_steps), int(gamma_steps)],
+        "seed": int(seed),
         "selected_gamma": (
-            float(gamma_opt)
-            if gamma_opt is not None
-            else None
+            float(gamma_opt) if gamma_opt is not None else None
         ),
         "selected_beta": (
-            float(beta_opt)
-            if beta_opt is not None
-            else None
+            float(beta_opt) if beta_opt is not None else None
         ),
-        "selected_point_inside_grid": bool(
-            selected_point_inside_grid
+        "processor": (
+            processor_config.get("name")
+            if processor_config is not None
+            else "ideal",
         ),
-        "seed": int(seed),
     }
+
+    return metadata
