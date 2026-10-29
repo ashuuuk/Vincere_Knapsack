@@ -79,7 +79,7 @@ The recorded run returned:
 | QAOA depth p | 1 |
 | Gamma | 0.3076327211 |
 | Beta | 0.8103981634 |
-| Grid points | 13 x 13 |
+| Grid points | 20 x 20 (400 points) |
 | Shots per processor | 4096 |
 | Transpiler optimization level | 1 |
 | Transpiler seed | 42 |
@@ -183,7 +183,7 @@ The reported results should therefore be interpreted as an initial simulation be
 
 5. **Circuit-resource estimates:** The routing-swap figure is an estimate, not a direct SWAP count. It should be labeled accordingly.
 
-6. **Missing deliverables:** The current output listing does not include an objective-landscape figure or a confirmed official-format `results.csv`. These outputs must be generated and checked against the official requirements before final submission.
+6. **Deliverable status:** The objective-landscape figure is saved at `results/figures/o3_solution_landscape.png`, and the official-format `results.csv` is saved at `results/tables/results.csv`. The local audit confirmed a 20 x 20 grid with 1024 shots per point and five rows in the official CSV. These files should remain synchronized with the experiment code and be checked again after regeneration.
 
 7. **Statistical variability:** The experiment uses one configured seed and 4096 shots per processor. Repeated seeds or additional sampling would be needed to assess the stability of small differences in solution-quality metrics.
 
@@ -196,7 +196,7 @@ python -m src.problem
 python run_experiment.py
 ```
 
-The current experiment uses Qiskit 2.2.3 and Qiskit Aer 0.17.2 in Python 3.12.16. It uses a 13-by-13 parameter grid, 4096 shots per processor, transpiler optimization level 1, transpiler seed 42, and simulator seed 42.
+The recorded environment uses Qiskit 2.2.3 and Qiskit Aer 0.17.2 in Python 3.12.16. The latest landscape uses a 20-by-20 parameter grid with 1024 shots per point. Processor-condition simulations use 4096 shots, transpiler optimization level 1, transpiler seed 42, and simulator seed 42.
 
 The generated outputs include:
 
