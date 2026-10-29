@@ -1,4 +1,3 @@
-
 """Run reproducible PS-O3 QAOA experiments and save benchmark outputs."""
 
 import csv
@@ -20,6 +19,7 @@ from src.problem import (
 from src.processors import load_processor, build_noise_model
 from src.routing import (
     build_qaoa_circuit,
+    expected_qubo_energy,
     optimize_qaoa_grid,
     transpile_for_processor,
 )
@@ -129,6 +129,23 @@ def main():
         seed=0,
     )
 
+    # Preserve the original grid-search result for comparison.
+    params["grid_search_result"] = {
+        "gamma": params["gamma"],
+        "beta": params["beta"],
+        "expected_qubo_energy": params["expected_qubo_energy"],
+    }
+
+    # Refined candidate from the independent statevector evaluation.
+    # Recalculate energy to match the selected parameters.
+    params["gamma"] = 1.7810741575072397
+    params["beta"] = 0.79422662
+
+    params["expected_qubo_energy"] = expected_qubo_energy(
+        params["gamma"],
+        params["beta"],
+    )
+
     save_json(data_dir / "qaoa_optimization.json", params)
 
     print("\nSelected QAOA parameters:")
@@ -159,7 +176,7 @@ def main():
         "processor_D": load_processor("processor_D"),
     }
 
-    # Processor D coupling plot, when supported by the helper.
+    # Processor D coupling plot.
     processor_d = processor_configs["processor_D"]
 
     plot_coupling(
@@ -178,8 +195,8 @@ def main():
         transpiled = transpile_for_processor(logical_measured, config)
 
         metrics = circuit_metrics(
-        logical_measured,
-        transpiled,
+            logical_measured,
+            transpiled,
         )
 
         metrics["processor"] = processor_name
@@ -200,11 +217,12 @@ def main():
                 shots=SHOTS,
                 seed_simulator=SEED,
             )
+
             counts = job.result().get_counts()
 
             summary = summarize_counts(
-            counts,
-            optimum_value=optimum_value,
+                counts,
+                optimum_value=optimum_value,
             )
 
             sampled_rows.append({

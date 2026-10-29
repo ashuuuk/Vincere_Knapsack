@@ -1,3 +1,3 @@
 logical_qubits,physical_qubits,logical_depth,transpiled_depth,logical_cx_equivalent,transpiled_cx_count,two_qubit_depth,estimated_routing_swaps,transpiled_operation_count,processor
-9,9,19,251,72,98,74,8.67,506,processor_B
-9,9,19,196,72,82,57,3.33,411,processor_D
+9,9,19,316,72,114,88,14.0,617,processor_B
+9,9,19,227,72,98,62,8.67,494,processor_D

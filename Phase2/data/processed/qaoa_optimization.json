@@ -1,7 +1,7 @@
 {
-  "gamma": 2.617993877991494,
-  "beta": 0.7853981633974483,
-  "expected_qubo_energy": 116.56020144259115,
+  "gamma": 1.7810741575072397,
+  "beta": 0.79422662,
+  "expected_qubo_energy": 109.13514915649884,
   "seed": 0,
   "num_starts": 5,
   "gamma_steps": 25,
@@ -55,6 +55,11 @@
     }
   ],
   "global_grid_best": {
+    "gamma": 2.617993877991494,
+    "beta": 0.7853981633974483,
+    "expected_qubo_energy": 116.56020144259115
+  },
+  "grid_search_result": {
     "gamma": 2.617993877991494,
     "beta": 0.7853981633974483,
     "expected_qubo_energy": 116.56020144259115
